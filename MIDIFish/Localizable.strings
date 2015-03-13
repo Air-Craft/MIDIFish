@@ -1,0 +1,13 @@
+/* 
+  Localizable.strings
+  MIDIFish
+ 
+  Created by Hari Karam Singh on 02/02/2015.
+
+*/
+
+// MIDIFish: Text appended to MIDIClient name for the Input Port name
+"%@ Input" = "%@ Input";
+
+// MIDIFish: Text appended to MIDIClient name for the Output Port name
+"%@ Output" = "%@ Output";
