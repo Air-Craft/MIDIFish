@@ -1,16 +1,16 @@
 //
-//  MFMIDIClient_Private.h
+//  MFMIDISession_Private.h
 //  AC-Sabre
 //
 //  Created by Hari Karam Singh on 05/02/2015.
 //
 //
 
-#import "MFMIDIClient.h"
+#import "MFMIDISession.h"
 @class _MFMIDINetworkConnection;
 @class _MFMIDIEndpointConnection;
 
-@interface MFMIDIClient ()
+@interface MFMIDISession ()
 
 /////////////////////////////////////////////////////////////////////////
 #pragma mark - Protected

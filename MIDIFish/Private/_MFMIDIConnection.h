@@ -15,10 +15,10 @@
  */
 @interface _MFMIDIConnection : NSObject <MFMIDIConnection>
 
-- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDIClient *)client;
+- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDISession *)client;
 
 /** Weak ref to the client as it handles all the dispatching */
-@property (nonatomic, readonly, weak) MFMIDIClient *client;
+@property (nonatomic, readonly, weak) MFMIDISession *client;
 
 
 @end

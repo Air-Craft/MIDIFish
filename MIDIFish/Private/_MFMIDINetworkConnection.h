@@ -23,12 +23,12 @@
 /** @override 
     Disable the super's init here 
  */
-- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDIClient *)client __attribute__((unavailable("Must use designated init!")));;
+- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDISession *)client __attribute__((unavailable("Must use designated init!")));;
 
-- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDIClient *)client host:(MIDINetworkHost *)host;
+- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDISession *)client host:(MIDINetworkHost *)host;
 
 /** Convenience method for creation from an NSNetService */
-- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDIClient *)client netService:(NSNetService *)netService;
+- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDISession *)client netService:(NSNetService *)netService;
 
 /** Considered equal if they have matching class and ths hosts check out the using `hasSameHostAs:` @override */
 - (BOOL)isEqual:(_MFMIDINetworkConnection *)object;

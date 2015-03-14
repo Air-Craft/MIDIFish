@@ -7,8 +7,8 @@
 //
 #import <CoreMIDI/CoreMIDI.h>
 #import <CoreMIDI/MIDINetworkSession.h>
-#import "MFMIDIClient.h"
-#import "MFMIDIClient_Private.h"
+#import "MFMIDISession.h"
+#import "MFMIDISession_Private.h"
 
 #import "MFNonFatalException.h"
 #import "_MFUtilities.h"
@@ -60,7 +60,7 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
 #pragma mark - Private Extensions
 /////////////////////////////////////////////////////////////////////////
 
-@interface MFMIDIClient () <NSNetServiceBrowserDelegate, NSNetServiceDelegate>
+@interface MFMIDISession () <NSNetServiceBrowserDelegate, NSNetServiceDelegate>
 @property (nonatomic, readwrite) BOOL isRefreshing;
 @end
 
@@ -86,7 +86,7 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
  2: addNetworkConnectionWithHost:  -- used by netBrowserDidFind as well
  3:
  */
-@implementation MFMIDIClient
+@implementation MFMIDISession
 {
     MIDIClientRef _clientRef;
     MIDIPortRef _outputPortRef;
@@ -112,7 +112,7 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
 
 //---------------------------------------------------------------------
 
-+ (instancetype)clientWithName:(NSString *)name
++ (instancetype)sessionWithName:(NSString *)name
 {
     return [[self alloc] initWithName:name];
 }
@@ -190,14 +190,14 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
 #pragma mark - Public Methods
 /////////////////////////////////////////////////////////////////////////
 
-- (void)addDelegate:(id<MFMIDIClientDelegate>)delegate
+- (void)addDelegate:(id<MFMIDISessionDelegate>)delegate
 {
     [_delegates addObject:delegate];
 }
 
 //---------------------------------------------------------------------
 
-- (void)removeDelegate:(id<MFMIDIClientDelegate>)delegate
+- (void)removeDelegate:(id<MFMIDISessionDelegate>)delegate
 {
     [_delegates removeObject:delegate];
 }
@@ -447,8 +447,7 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
 - (void)sendPitchbend:(UInt16)value
 {
     MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypePitchbend channel:_channel];
-    msg.data2 = (value >> 4) & 0x7F;    // msb in data 2
-    msg.data1 = value & 0x7F;           // lsb in data 1
+    msg.pitchbendValue = value;
     [self sendMIDIMessage:msg];
 }
 
@@ -499,7 +498,7 @@ static void _MFMIDINotifyProc(const MIDINotification *message, void *refCon)
 {
     //if (message->child == virtualDestinationEndpoint || notification->child == virtualSourceEndpoint) return;
     
-    MFMIDIClient *self = (__bridge MFMIDIClient *)refCon;
+    MFMIDISession *self = (__bridge MFMIDISession *)refCon;
     switch (message->messageID)
     {
         case kMIDIMsgObjectAdded:
@@ -1049,33 +1048,33 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     // Notify delegates
     if (isSource && isConnect)
     {
-        for (id<MFMIDIClientDelegate>delegate in _delegates) {
-            if ([delegate respondsToSelector:@selector(MIDIClient:didAddSource:)]) {
-                [delegate MIDIClient:self didAddSource:(id)conx];
+        for (id<MFMIDISessionDelegate>delegate in _delegates) {
+            if ([delegate respondsToSelector:@selector(MIDISession:didAddSource:)]) {
+                [delegate MIDISession:self didAddSource:(id)conx];
             }
         }
     }
     else if (isSource && !isConnect)
     {
-        for (id<MFMIDIClientDelegate>delegate in _delegates) {
-            if ([delegate respondsToSelector:@selector(MIDIClient:didRemoveSource:)]) {
-                [delegate MIDIClient:self didRemoveSource:(id)conx];
+        for (id<MFMIDISessionDelegate>delegate in _delegates) {
+            if ([delegate respondsToSelector:@selector(MIDISession:didRemoveSource:)]) {
+                [delegate MIDISession:self didRemoveSource:(id)conx];
             }
         }
     }
     else if (!isSource && isConnect)
     {
-        for (id<MFMIDIClientDelegate>delegate in _delegates) {
-            if ([delegate respondsToSelector:@selector(MIDIClient:didAddDestination:)]) {
-                [delegate MIDIClient:self didAddDestination:(id)conx];
+        for (id<MFMIDISessionDelegate>delegate in _delegates) {
+            if ([delegate respondsToSelector:@selector(MIDISession:didAddDestination:)]) {
+                [delegate MIDISession:self didAddDestination:(id)conx];
             }
         }
     }
     else if (!isSource && !isConnect)
     {
-        for (id<MFMIDIClientDelegate>delegate in _delegates) {
-            if ([delegate respondsToSelector:@selector(MIDIClient:didRemoveDestination:)]) {
-                [delegate MIDIClient:self didRemoveDestination:(id)conx];
+        for (id<MFMIDISessionDelegate>delegate in _delegates) {
+            if ([delegate respondsToSelector:@selector(MIDISession:didRemoveDestination:)]) {
+                [delegate MIDISession:self didRemoveDestination:(id)conx];
             }
         }
     }
@@ -1087,9 +1086,9 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 - (void)_notifyDelegatesConnectionRefreshDidBegin
 {
     // Tell delegates
-    for (id<MFMIDIClientDelegate> delegate in _delegates) {
-        if ([delegate respondsToSelector:@selector(MIDIClientDidBeginConnectionRefresh:)]) {
-            [delegate MIDIClientDidBeginConnectionRefresh:self];
+    for (id<MFMIDISessionDelegate> delegate in _delegates) {
+        if ([delegate respondsToSelector:@selector(MIDISessionDidBeginConnectionRefresh:)]) {
+            [delegate MIDISessionDidBeginConnectionRefresh:self];
         }
     }
 }
@@ -1099,9 +1098,9 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 - (void)_notifyDelegatesConnectionsRefreshDidEnd
 {
     // Tell delegates
-    for (id<MFMIDIClientDelegate> delegate in _delegates) {
-        if ([delegate respondsToSelector:@selector(MIDIClientDidEndConnectionRefresh:)]) {
-            [delegate MIDIClientDidEndConnectionRefresh:self];
+    for (id<MFMIDISessionDelegate> delegate in _delegates) {
+        if ([delegate respondsToSelector:@selector(MIDISessionDidEndConnectionRefresh:)]) {
+            [delegate MIDISessionDidEndConnectionRefresh:self];
         }
     }
 }

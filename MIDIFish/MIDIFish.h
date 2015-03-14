@@ -11,7 +11,7 @@
 
 #import "MFProtocols.h"
 #import "MFNonFatalException.h"
-#import "MFMIDIClient.h"
+#import "MFMIDISession.h"
 #import "MFMIDIMessage.h"
 
 #endif

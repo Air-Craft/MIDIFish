@@ -8,13 +8,13 @@
 
 #import "_MFMIDIEndpointConnection.h"
 #import "_MFUtilities.h"
-#import "MFMIDIClient_Private.h"
+#import "MFMIDISession_Private.h"
 
 @implementation _MFMIDIEndpointConnection
 
 - (void)setEnabled:(BOOL)enabled
 {
-    // Everything goes through MIDIClient
+    // Everything goes through MIDISession
     [self.client _setStateForEndpointConnection:self toEnabled:enabled];
 }
 

@@ -12,7 +12,7 @@
 #import <Foundation/Foundation.h>
 #import <CoreMIDI/MIDINetworkSession.h>
 @class MFMIDIMessage;
-@class MFMIDIClient;
+@class MFMIDISession;
 
 /////////////////////////////////////////////////////////////////////////
 #pragma mark - Connections
@@ -124,18 +124,18 @@
 #pragma mark - Client Delegate
 /////////////////////////////////////////////////////////////////////////
 
-@protocol MFMIDIClientDelegate <MFMIDIMessageReceiverDelegate>
+@protocol MFMIDISessionDelegate <MFMIDIMessageReceiverDelegate>
 
 @optional
-- (void)MIDIClientDidBeginConnectionRefresh:(MFMIDIClient *)midiClient;
-- (void)MIDIClientDidEndConnectionRefresh:(MFMIDIClient *)midiClient;
+- (void)MIDISessionDidBeginConnectionRefresh:(MFMIDISession *)midiSession;
+- (void)MIDISessionDidEndConnectionRefresh:(MFMIDISession *)midiSession;
 
-- (void)MIDIClient:(MFMIDIClient *)midiClient didAddSource:(id<MFMIDISource>)source;
-- (void)MIDIClient:(MFMIDIClient *)midiClient didRemoveSource:(id<MFMIDISource>)source;
+- (void)MIDISession:(MFMIDISession *)midiSession didAddSource:(id<MFMIDISource>)source;
+- (void)MIDISession:(MFMIDISession *)midiSession didRemoveSource:(id<MFMIDISource>)source;
 
 
-- (void)MIDIClient:(MFMIDIClient *)midiClient didAddDestination:(id<MFMIDIDestination>)source;
-- (void)MIDIClient:(MFMIDIClient *)midiClient didRemoveDestination:(id<MFMIDIDestination>)source;
+- (void)MIDISession:(MFMIDISession *)midiSession didAddDestination:(id<MFMIDIDestination>)source;
+- (void)MIDISession:(MFMIDISession *)midiSession didRemoveDestination:(id<MFMIDIDestination>)source;
 
 @end
 

@@ -202,8 +202,13 @@
         case kMFMIDIMessageTypeSysex:
             typeName = @"Sysex";
             dataInfo = [self _hexStringForData:self.data maxByteCount:20];
+            goto rawstyle;
+        
+        default:
+            typeName = @"Unknown";
+            dataInfo = [self _hexStringForData:self.data maxByteCount:20];
+            goto rawstyle;
             
-            break;
         case kMFMIDIMessageTypeChannelAftertouch:
             typeName = @"Channel AfterTouch";
             dataInfo = [NSString stringWithFormat:@"key=%d, pressure=%d", self.key, self.channelPressure];
@@ -226,7 +231,7 @@
             break;
         case kMFMIDIMessageTypePitchbend:
             typeName = @"Pitch Bend";
-            dataInfo = [self _hexStringForData:self.data maxByteCount:20];
+            dataInfo = [NSString stringWithFormat:@"value=%d", self.pitchbendValue];
             
             break;
         case kMFMIDIMessageTypePolyphonicAftertouch:
@@ -239,17 +244,18 @@
             dataInfo = [NSString stringWithFormat:@"programNumber=%d", self.programNumber];
             
             break;
-        default:
-            typeName = @"Unknown";
-            dataInfo = [self _hexStringForData:self.data maxByteCount:20];
-            
-            break;
     }
+    
+friendlystyle:
     if(self.type != kMFMIDIMessageTypeSysex && self.length > 3) {
         dataInfo = [dataInfo stringByAppendingString:[self _hexStringForData:self.data maxByteCount:20]];
     }
+    return [NSString stringWithFormat:@"<%@: ch=%i, %@>", typeName, (int)self.channel, dataInfo];
+
     
-    return [NSString stringWithFormat:@"%@ status=0x%x[type=%@, channel=%d], length=0x%lx, %@", super.description, self.status, typeName, self.channel, (unsigned long)self.length, dataInfo];
+rawstyle:
+    return [NSString stringWithFormat:@"<%@ status=0x%x, length=0x%lx, %@>", typeName, self.status, (unsigned long)self.length, dataInfo];
+
 }
 
 
@@ -332,6 +338,22 @@
 - (void)setValue:(UInt8)val { [self setByte:val & 0x7f atIndex:2]; }
 - (void)setKeyPressure:(UInt8)val { [self setByte:val & 0x7f atIndex:2]; }
 - (void)setData2:(UInt8)val { [self setByte:val & 0x7f atIndex:2]; }
+
+//---------------------------------------------------------------------
+
+- (UInt16)doublePrecisionValue { return (self.bytes[2] << 7) + self.bytes[1]; }
+- (UInt16)pitchbendValue { return (self.bytes[2] << 7) + self.bytes[1]; }
+
+- (void)setDoublePrecisionValue:(UInt16)value
+{
+    self.data2 = (value >> 7) & 0x7F;    // msb in data 2
+    self.data1 = value & 0x7F;           // lsb in data 1
+}
+- (void)setPitchbendValue:(UInt16)value
+{
+    self.data2 = (value >> 7) & 0x7F;    // msb in data 2
+    self.data1 = value & 0x7F;           // lsb in data 1
+}
 
 //---------------------------------------------------------------------
 

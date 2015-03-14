@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 #import "MFProtocols.h"
 #import "_MFMIDIEndpointConnection.h"
-@class MFMIDIClient;
+@class MFMIDISession;
 
 @interface _MFMIDIEndpointDestination : _MFMIDIEndpointConnection <MFMIDIDestination>
 

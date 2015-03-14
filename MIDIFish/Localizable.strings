@@ -6,8 +6,8 @@
 
 */
 
-// MIDIFish: Text appended to MIDIClient name for the Input Port name
+// MIDIFish: Text appended to MIDISession name for the Input Port name
 "%@ Input" = "%@ Input";
 
-// MIDIFish: Text appended to MIDIClient name for the Output Port name
+// MIDIFish: Text appended to MIDISession name for the Output Port name
 "%@ Output" = "%@ Output";

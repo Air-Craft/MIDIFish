@@ -18,9 +18,9 @@
 /////////////////////////////////////////////////////////////////////////
 #pragma mark -
 /////////////////////////////////////////////////////////////////////////
-@protocol MFMIDIClientDelegate;
+@protocol MFMIDISessionDelegate;
 
-@interface MFMIDIClient : NSObject <MFMIDIMessageSender, MFMIDIMessageReceiver>
+@interface MFMIDISession : NSObject <MFMIDIMessageSender, MFMIDIMessageReceiver>
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -28,7 +28,7 @@
 /////////////////////////////////////////////////////////////////////////
 
 /** Create a new client. Won't have any connections until you call `refresh...` @throws MFNonFatalException if unable to create MIDI Client or In/Out ports */
-+ (instancetype)clientWithName:(NSString *)name;
++ (instancetype)sessionWithName:(NSString *)name;
 
 /** Create a new client. Won't have any connections until you call `refresh...` @throws MFNonFatalException if unable to create MIDI Client or In/Out ports */
 - (instancetype)initWithName:(NSString *)name;
@@ -101,8 +101,8 @@
 #pragma mark - Public Methods
 /////////////////////////////////////////////////////////////////////////
 
-- (void)addDelegate:(id<MFMIDIClientDelegate>)delegate;
-- (void)removeDelegate:(id<MFMIDIClientDelegate>)delegate;
+- (void)addDelegate:(id<MFMIDISessionDelegate>)delegate;
+- (void)removeDelegate:(id<MFMIDISessionDelegate>)delegate;
 
 /** Re-scan the connected devices (instantaneous) and Network (async) updating connections list. If called while scanning then a cancel is called first */
 - (void)refreshConnections;

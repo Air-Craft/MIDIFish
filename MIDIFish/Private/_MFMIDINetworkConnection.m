@@ -7,7 +7,7 @@
 //
 
 #import <CoreMIDI/MIDINetworkSession.h>
-#import "MFMIDIClient_Private.h"
+#import "MFMIDISession_Private.h"
 #import "_MFMIDINetworkConnection.h"
 #import "_MFUtilities.h"
 
@@ -20,7 +20,7 @@
 
 @synthesize host=_host;
 
-- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(MFMIDIClient *__weak)client host:(MIDINetworkHost *)host
+- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(MFMIDISession *__weak)client host:(MIDINetworkHost *)host
 {
     self = [super initWithEndpoint:endpoint client:client];
     if (self) {
@@ -32,7 +32,7 @@
 
 //---------------------------------------------------------------------
 
-- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(MFMIDIClient *__weak)client netService:(NSNetService *)netService
+- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(MFMIDISession *__weak)client netService:(NSNetService *)netService
 {
     MIDINetworkHost *host = [MIDINetworkHost hostWithName:netService.name netService:netService];
     return [self initWithEndpoint:endpoint client:client host:host];

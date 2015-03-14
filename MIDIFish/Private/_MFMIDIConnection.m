@@ -11,7 +11,7 @@
 
 @implementation _MFMIDIConnection
 
-- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDIClient *)client
+- (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDISession *)client
 {
     self = [super init];
     if (self) {
@@ -51,7 +51,7 @@
 
 //---------------------------------------------------------------------
 
-// Create a setter for MIDIClient's readwrite override of the property
+// Create a setter for MIDISession's readwrite override of the property
 - (void)setIsVirtualConnection:(BOOL)isVirtual { _isVirtualConnection = isVirtual; }
 
 

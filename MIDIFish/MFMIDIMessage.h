@@ -100,13 +100,13 @@ typedef NS_ENUM(UInt8, MFMIDIMessageType) {
 @property (nonatomic, readonly) NSUInteger length;
 
 /** The MIDI Channel 0-15 */
-@property (nonatomic, assign) UInt8 channel;
+@property (nonatomic) UInt8 channel;
 
 /** NoteOn, Pitchbend, etc */
-@property (nonatomic, assign) MFMIDIMessageType type;
+@property (nonatomic) MFMIDIMessageType type;
 
 /// The full first byte. For most messages its the type (msb) + channel (lsb)
-@property (nonatomic, assign) UInt8 status;
+@property (nonatomic) UInt8 status;
 
 /**
  These all get/set the second byte.
@@ -117,7 +117,7 @@ typedef NS_ENUM(UInt8, MFMIDIMessageType) {
  programNumber:  program change messages
  data1:          generic
  */
-@property (nonatomic, assign) UInt8 key, controller, programNumber, channelPressure, data1;
+@property (nonatomic) UInt8 key, controller, programNumber, channelPressure, data1;
 
 /**
  These all get/set the third byte.
@@ -128,7 +128,12 @@ typedef NS_ENUM(UInt8, MFMIDIMessageType) {
  pressures:      aftertouch messages
  data2:          generic
  */
-@property (nonatomic, assign) UInt8 velocity, value, keyPressure, data2;
+@property (nonatomic) UInt8 velocity, value, keyPressure, data2;
+
+/** 
+ Used for double (14bit) precision values like Pitchbend
+ */
+@property (nonatomic) UInt16 doublePrecisionValue, pitchbendValue;
 
 /// The wrapped mutable data object. You can still mutate it even though its readonly
 @property (nonatomic, readonly) NSMutableData *data;
