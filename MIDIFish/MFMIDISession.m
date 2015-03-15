@@ -44,7 +44,7 @@
 static const NSTimeInterval _NETSERVICE_RESOLVE_TIMEOUT = 15;   // seconds
 
 /** When refresh is called whilst refreshing, cancelRefresh is called and then refresh is called again  after this time delay */
-static const NSTimeInterval _REFRESH_RETRY_TIME_AFTER_STOP = 0.25;
+static const NSTimeInterval _REFRESH_RETRY_TIME_AFTER_STOP = 0.5;
 
 
 // C callbacks: definitions are near their ObjC counterparts
@@ -743,6 +743,10 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 {
     if (_netServicesAwaitingResolve.count > 0 ||
         _netServiceBrowserIsSearching)
+    {
+        echo("NETSERVICE: Still resolving...");
+    }
+    else
     {
         echo("NETSERVICE: All done! Cleaning up...");
 
