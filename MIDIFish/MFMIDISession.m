@@ -457,7 +457,6 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
 {
     MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeProgramChange channel:_channel];
     msg.programNumber = value;
-    msg.data2 = 0;
     [self sendMIDIMessage:msg];
 }
 
@@ -467,7 +466,6 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
 {
     MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeChannelAftertouch channel:_channel];
     msg.channelPressure = pressure;
-    msg.data2 = 0;
     [self sendMIDIMessage:msg];
 }
 

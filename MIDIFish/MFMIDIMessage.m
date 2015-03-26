@@ -24,6 +24,9 @@
     self = [super init];
     if (self) {
         _data = [NSMutableData dataWithCapacity:3];
+        ((UInt8 *)_data.mutableBytes)[0] = 0;
+        ((UInt8 *)_data.mutableBytes)[1] = 0;
+        ((UInt8 *)_data.mutableBytes)[2] = 0;
     }
     return self;
 }
@@ -210,8 +213,8 @@
             goto rawstyle;
             
         case kMFMIDIMessageTypeChannelAftertouch:
-            typeName = @"Channel AfterTouch";
-            dataInfo = [NSString stringWithFormat:@"key=%d, pressure=%d", self.key, self.channelPressure];
+            typeName = @"Channel Aftertouch";
+            dataInfo = [NSString stringWithFormat:@"pressure=%d", self.self.channelPressure];
             
             break;
         case kMFMIDIMessageTypeControlChange:
@@ -235,7 +238,7 @@
             
             break;
         case kMFMIDIMessageTypePolyphonicAftertouch:
-            typeName = @"Polyphonic AfterTouch";
+            typeName = @"Polyphonic Aftertouch";
             dataInfo = [NSString stringWithFormat:@"key=%d, pressure=%d", self.key, self.keyPressure];
             
             break;
@@ -317,25 +320,25 @@ rawstyle:
 // All these are the same
 - (UInt8)key { return self.length > 1 ? self.bytes[1] : 0; }
 - (UInt8)controller { return self.length > 1 ? self.bytes[1] : 0; }
-- (UInt8)programNumber { return self.length > 1 ? self.bytes[1] : 0; }
-- (UInt8)channelPressure { return self.length > 1 ? self.bytes[1] : 0; }
 - (UInt8)data1 { return self.length > 1 ? self.bytes[1] : 0; }
 
 - (void)setKey:(UInt8)val { [self setByte:val & 0x7f atIndex:1]; }
 - (void)setController:(UInt8)val { [self setByte:val & 0x7f atIndex:1]; }
-- (void)setProgramNumber:(UInt8)val { [self setByte:val & 0x7f atIndex:1]; }
-- (void)setChannelPressure:(UInt8)val { [self setByte:val & 0x7f atIndex:1]; }
 - (void)setData1:(UInt8)val { [self setByte:val & 0x7f atIndex:1]; }
 
 //---------------------------------------------------------------------
 
 - (UInt8)velocity { return self.length > 2 ? self.bytes[2] : 0; }
 - (UInt8)value { return self.length > 2 ? self.bytes[2] : 0; }
+- (UInt8)programNumber { return self.length > 2 ? self.bytes[2] : 0; }
+- (UInt8)channelPressure { return self.length > 2 ? self.bytes[2] : 0; }
 - (UInt8)keyPressure { return self.length > 2 ? self.bytes[2] : 0; }
 - (UInt8)data2 { return self.length > 2 ? self.bytes[2] : 0; }
 
 - (void)setVelocity:(UInt8)val { [self setByte:val & 0x7f atIndex:2]; }
 - (void)setValue:(UInt8)val { [self setByte:val & 0x7f atIndex:2]; }
+- (void)setProgramNumber:(UInt8)val { [self setByte:val & 0x7f atIndex:2]; }
+- (void)setChannelPressure:(UInt8)val { [self setByte:val & 0x7f atIndex:2]; }
 - (void)setKeyPressure:(UInt8)val { [self setByte:val & 0x7f atIndex:2]; }
 - (void)setData2:(UInt8)val { [self setByte:val & 0x7f atIndex:2]; }
 

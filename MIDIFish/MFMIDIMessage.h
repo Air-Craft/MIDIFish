@@ -117,7 +117,7 @@ typedef NS_ENUM(UInt8, MFMIDIMessageType) {
  programNumber:  program change messages
  data1:          generic
  */
-@property (nonatomic) UInt8 key, controller, programNumber, channelPressure, data1;
+@property (nonatomic) UInt8 key, controller, data1;
 
 /**
  These all get/set the third byte.
@@ -128,7 +128,7 @@ typedef NS_ENUM(UInt8, MFMIDIMessageType) {
  pressures:      aftertouch messages
  data2:          generic
  */
-@property (nonatomic) UInt8 velocity, value, keyPressure, data2;
+@property (nonatomic) UInt8 velocity, value, programNumber, channelPressure, keyPressure, data2;
 
 /** 
  Used for double (14bit) precision values like Pitchbend
