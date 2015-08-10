@@ -391,7 +391,14 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
     {
         if (!conx.enabled) continue;
 
-        OSStatus s = MIDISend(_outputPortRef, conx.endpoint, packetList);
+        // MIDI Source acts the other way aroud
+        OSStatus s;
+        if (conx.isVirtualConnection) {
+            s = MIDIReceived(conx.endpoint, packetList);
+        } else {
+            s = MIDISend(_outputPortRef, conx.endpoint, packetList);
+        }
+        
         if (res == noErr && s != noErr) res = s;    // track the first error
     }
     
@@ -523,7 +530,7 @@ static void _MFMIDINotifyProc(const MIDINotification *message, void *refCon)
             
             echo("CoreMIDI reported ADDED endpoint %i", (int)endpoint);
 
-            // Skip if it's a virtual one
+            // Skip if it's a virtual one as we were the ones who added it
             if ([self _endpointIsForVirtualConnection:endpoint]) {
                 echo("...skipping as it's virtual");
                 return;
