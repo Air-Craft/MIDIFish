@@ -47,6 +47,9 @@
 /** Stores enabled states for connections (in NSUserDefaults) and restores them upon re-discovery / re-creation (ie does NOT add them on launch, only sets them when found) */
 @property (nonatomic) BOOL restorePreviousConnectionStates;
 
+/** Default=YES. YES means ignore the endpoint which shares the same name as this device. */
+@property (nonatomic) BOOL excludeSelfInNetworkScan;
+
 //@property (nonatomic) BOOL reconnectVirtualConnections;
 //@property (nonatomic) BOOL reconnectNetworkConnections;
 

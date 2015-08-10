@@ -115,8 +115,10 @@
 - (void)sendPolyphonicAftertouch:(UInt8)key pressure:(UInt8)pressure;
 
 /** MIDI All Notes Off Message (CC:123) */
-- (void)sendAllNotesOff;
-// ...
+- (void)sendAllNotesOffForCurrentChannel;
+
+- (void)sendAllNotesOffForAllChannels;
+
 
 @end
 

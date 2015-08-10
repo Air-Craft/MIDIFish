@@ -127,6 +127,7 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
         _name = name;
         _netBrowser = [[NSNetServiceBrowser alloc] init];
         _netBrowser.delegate = self;
+        _excludeSelfInNetworkScan = YES;
         _endpointSources = (id)[NSArray array];
         _endpointDestinations = (id)[NSArray array];
         _networkSources = (id)[NSArray array];
@@ -247,7 +248,7 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
     echo("Cancelling (net) refresh"); // just net b/c the other is instantaneous
     
     // Stop the netService resolves too
-    for (NSNetService *netService in _netServicesAwaitingResolve) {
+    for (NSNetService *netService in _netServicesAwaitingResolve.copy) {
         [netService stop];
     }
     [_netServicesAwaitingResolve removeAllObjects];
@@ -481,9 +482,24 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
 
 //---------------------------------------------------------------------
 
-- (void)sendAllNotesOff
+- (void)sendAllNotesOffForCurrentChannel
 {
     [self sendCC:123 value:127];
+}
+
+//---------------------------------------------------------------------
+
+- (void)sendAllNotesOffForAllChannels
+{
+    NSUInteger currentChan = self.channel;
+    
+    for (NSUInteger i=0; i<=15; i++)
+    {
+        self.channel = i;
+        [self sendAllNotesOffForCurrentChannel];
+    }
+    
+    self.channel = currentChan;
 }
 
 
@@ -588,13 +604,22 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 
 - (void)netServiceBrowser:(NSNetServiceBrowser *)aNetServiceBrowser didFindService:(NSNetService *)aNetService moreComing:(BOOL)moreComing
 {
-    echo("NETSERVICE: Found %@. Resolving...", aNetService);
-    
-    // See Special Notes in README about NSNetService. In short we need to resolve manually into IP/Port and create a connection with those
-    
-    [_netServicesAwaitingResolve addObject:aNetService];
-    aNetService.delegate = self;
-    [aNetService resolveWithTimeout:_NETSERVICE_RESOLVE_TIMEOUT];
+    // Ignore the local device if specified
+    // Don't use UIDevice.currentDevice.name as apparently it can be different: http://stackoverflow.com/questions/7723801/apple-bonjour-how-can-i-tell-which-published-service-is-my-own/31526432?noredirect=1#comment51654025_31526432
+    if (_excludeSelfInNetworkScan && [aNetService.name isEqualToString:_midiNetSession.networkName])
+    {
+        echo("NETSERVICE: Browser will ignore self '%@'", aNetService.name);
+    }
+    else
+    {
+        echo("NETSERVICE: Found %@. Resolving...", aNetService);
+        
+        // See Special Notes in README about NSNetService. In short we need to resolve manually into IP/Port and create a connection with those
+        
+        [_netServicesAwaitingResolve addObject:aNetService];
+        aNetService.delegate = self;
+        [aNetService resolveWithTimeout:_NETSERVICE_RESOLVE_TIMEOUT];
+    }
     
     // If that's it then stop the browser (it's manually controlled)
     if (!moreComing) {
@@ -627,6 +652,12 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 - (void)netService:(NSNetService *)sender didNotResolve:(NSDictionary *)errorDict
 {
     warn("NETSERVICE: %@ DID NOT RESOLVE. Adding to MIDINetworkSession anyway as a fallback (using the NSNetService) Error: %@", sender, errorDict);
+
+    // Ignore the local device if specified. Do it here too to prevent it messing up the trackers below
+    // Don't use UIDevice.currentDevice.name as apparently it can be different: http://stackoverflow.com/questions/7723801/apple-bonjour-how-can-i-tell-which-published-service-is-my-own/31526432?noredirect=1#comment51654025_31526432
+    if (_excludeSelfInNetworkScan && [sender.name isEqualToString:_midiNetSession.networkName]) {
+        return;
+    }
     
     // Fallback - at least it will show up in MIDI Network Setup's "Directory"
     // @TODO: ???
@@ -668,6 +699,14 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 
 - (void)netServiceDidResolveAddress:(NSNetService *)sender
 {
+    // Ignore the local device if specified
+    // Don't use UIDevice.currentDevice.name as apparently it can be different: http://stackoverflow.com/questions/7723801/apple-bonjour-how-can-i-tell-which-published-service-is-my-own/31526432?noredirect=1#comment51654025_31526432
+    if (_excludeSelfInNetworkScan && [sender.name isEqualToString:_midiNetSession.networkName])
+    {
+        echo("NETSERVICE: Resolve will ignore self '%@'", sender.name);
+        return;
+    }
+
     uint16_t port;
     NSString *ipAddress = nil;
     
