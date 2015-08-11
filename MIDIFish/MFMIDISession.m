@@ -52,8 +52,7 @@ static void _MFMIDINotifyProc(const MIDINotification *message, void *refCon);
 static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon, void *srcConnRefCon);
 
 static NSString * const _kUserDefsKeyEnabledStates = @"co.air-craft.MIDIFish.connectionsEnabledStates";
-static NSString * const _kUserDefsKeyNetworkConnections = @"co.air-craft.MIDIFish.networkConnectionsList";
-static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFish.virtualConnectionsList";
+static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish.manualConnections";
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -72,6 +71,12 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
 - (void)_setEnabledFlag:(BOOL)enabled;
 @end
 
+//---------------------------------------------------------------------
+
+@interface _MFMIDINetworkConnection ()
+@property (nonatomic, readwrite) BOOL isManualConnection;
+@end
+
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -85,6 +90,9 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
  1: _refresh... -- (endpoint-based conx and the single network session endpoint)
  2: addNetworkConnectionWithHost:  -- used by netBrowserDidFind as well
  3:
+ 
+ TODOS:
+ - Persistence should probably have a built in clean out mechanism for ones that havent appeared in say a year. Very low priority for now.
  */
 @implementation MFMIDISession
 {
@@ -128,6 +136,7 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
         _netBrowser = [[NSNetServiceBrowser alloc] init];
         _netBrowser.delegate = self;
         _excludeSelfInNetworkScan = YES;
+        _persistManualNetworkConnections = YES;
         _endpointSources = (id)[NSArray array];
         _endpointDestinations = (id)[NSArray array];
         _networkSources = (id)[NSArray array];
@@ -222,12 +231,18 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
     // Rescan endpoints/direct connections and
     [self _refreshConnectionsForMIDIEndpoints];
     
-    // initiate a network scan if enabled
+    // For network, re-add persisted manuals and initiate a network scan if enabled
     // Otherwise send "End" straight away if network is disabled
-    if (self.networkEnabled) {
+    if (self.networkEnabled)
+    {
+        if (_persistManualNetworkConnections) {
+            [self _restoreManualNetworkConnections];
+        }
         
         [_netBrowser searchForServicesOfType:MIDINetworkBonjourServiceType inDomain:@""];
-    } else {
+    }
+    else
+    {
         [self _notifyDelegatesConnectionsRefreshDidEnd];
     }
 }
@@ -316,52 +331,80 @@ static NSString * const _kUserDefsKeyVirtualConnections = @"co.air-craft.MIDIFis
 
 //---------------------------------------------------------------------
 
-- (NSArray *)addNetworkConnectionWithName:(NSString *)name address:(NSString *)address port:(NSUInteger)port
+- (NSArray *)addManualNetworkConnectionWithName:(NSString *)name address:(NSString *)address port:(NSUInteger)port
 {
-    MIDINetworkHost *host = [MIDINetworkHost hostWithName:name address:address port:port];
-    return [self addNetworkConnectionWithHost:host];
+    echo("Adding Manual Network Connection '%@' addr=%@, port=%i", name, address, (int)port);
+    
+    NSArray *conns = [self _addNetworkConnectionWithName:name address:address port:port];
+    
+    // We need to for enablding as _addNetwork... will result in it obeying the autoEnableDestination flag which isnt really what we want here
+    _MFMIDINetworkConnection *conn = conns[1];
+    conn.enabled = YES;
+    [self _storeConnectionEnabledState:conn];
+    
+    // Store in userdefs if specified
+    if (_persistManualNetworkConnections)
+    {
+        echo("...Storing Connection in UserDefs");
+        
+        NSMutableDictionary *manualConns = [[_userDefs objectForKey:_kUserDefsKeyManualConnections] mutableCopy];
+        // Create dict of none previously
+        if (manualConns == nil) {
+            echo("...First ever entry!");
+            manualConns = [NSMutableDictionary new];
+        }
+        manualConns[name] = @{ @"address": address, @"port": @(port) };
+        
+        [_userDefs setObject:manualConns forKey:_kUserDefsKeyManualConnections];
+        [_userDefs synchronize];
+    }
+    
+    return conns;
 }
 
 //---------------------------------------------------------------------
 
-/** @private See notes about NSNetService above. */
-- (NSArray *)addNetworkConnectionWithHost:(MIDINetworkHost *)host
+- (void)forgetManualNetworkConnectionWithName:(NSString *)name
 {
-    echo("Adding Network Source/Destination pair for host %@", host);
+    echo("Removing connection and persistence for Manual Network Connection '%@'", name);
     
-    // Get the endpoints for the MIDISession
-    MIDIEndpointRef srcEndpoint = [_midiNetSession sourceEndpoint];
-    MIDIEndpointRef destEndpoint = [_midiNetSession destinationEndpoint];
-    
-    // Look for a matching connection in our list
-    // We can search either list
-    _MFMIDINetworkDestination *dest = [[_MFMIDINetworkDestination alloc] initWithEndpoint:destEndpoint client:self host:host];
-    _MFMIDINetworkSource *src = [[_MFMIDINetworkSource alloc] initWithEndpoint:srcEndpoint client:self host:host];
-
-    NSInteger idx = [_networkDestinations indexOfObject:dest]; // uses isEqual:
-    if (idx != NSNotFound) {
-        return (id)@[_networkSources[idx], _networkDestinations[idx]];
+    // Find the connections
+    _MFMIDINetworkConnection *source, *destination;
+    for (_MFMIDINetworkConnection *conn in _networkSources)
+    {
+        if ([conn.name isEqual:name]) {
+            source = conn;
+            break;
+        }
     }
-
-    // Add to the list and enable if auto
-    echo("...adding NetworkSource & NetworkDestination to our list.");
-    _networkSources = (id)[_networkSources arrayByAddingObject:src];
-    _networkDestinations = (id)[_networkDestinations arrayByAddingObject:dest];
+    for (_MFMIDINetworkConnection *conn in _networkDestinations)
+    {
+        if ([conn.name isEqual:name]) {
+            destination = conn;
+            break;
+        }
+    }
     
-    // Handle autoEnable. FYI they ARENT necessarily in the MIDI session if they appear here.
-    // Do both even though they are coupled for futureproofing
-    // The enabled flag is a smart setter and handles MIDISession stuff
-    // Handle auto-enabled / restore
-    [self _setEnabledStateForConnectionBasedOnSettings:src];
-    [self _setEnabledStateForConnectionBasedOnSettings:dest];
+    // Sanity check
+    NSAssert(source && destination, @"Something's weird. We dont have a complete pair: source=%@, destination=%@", source, destination);
     
+    // Disable them (only one required as they are coupled)
+    destination.enabled = NO;
     
-    // And the delegates
-    // NOTE: Why is delegate separate from connect here but for EndpointConnections? B/c for net conns we use the connection/disconnection for enabled/disabled where with Endpoint-based conns, they are always connected (we have no choice i dont think) and we use our enabled flag to determine whether to send. In the end its all b/c there is only 1 Endpoint for ALL network connections. Booooo.
-    [self _notifyDelegatesAboutConnection:src didConnect:YES];
-    [self _notifyDelegatesAboutConnection:dest didConnect:YES];
+    // Remove them from the connections list
+    _networkSources = [_networkSources arrayDifferenceWithArray:@[source]];
+    _networkDestinations = [_networkDestinations arrayDifferenceWithArray:@[destination]];
     
-    return (id)@[src, dest];
+    // Remove from the UserDefs if set
+    if (_persistManualNetworkConnections)
+    {
+        NSMutableDictionary *manualConns = [[_userDefs objectForKey:_kUserDefsKeyManualConnections] mutableCopy];
+        if (manualConns && [manualConns objectForKey:name]) {
+            [manualConns removeObjectForKey:name];
+            [_userDefs setObject:manualConns forKey:_kUserDefsKeyManualConnections];
+            [_userDefs synchronize];
+        }
+    }
 }
 
 
@@ -669,7 +712,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     // Fallback - at least it will show up in MIDI Network Setup's "Directory"
     // @TODO: ???
     MIDINetworkHost *host = [MIDINetworkHost hostWithName:sender.name netService:sender];
-    NSArray *pair = [self addNetworkConnectionWithHost:host];
+    NSArray *pair = [self _addNetworkConnectionWithHost:host];
     _MFMIDINetworkConnection *src = pair[0], *dest = pair[1];
     [_netConxToRemove removeObject:src];
     [_netConxToRemove removeObject:dest];
@@ -768,7 +811,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
         
         // Connect to MIDI
         // Handles delegate (if it's not an existing connection). Returns the created or existing conx pair
-        NSArray *pair = [self addNetworkConnectionWithName:sender.name address:ipAddress port:port];
+        NSArray *pair = [self _addNetworkConnectionWithName:sender.name address:ipAddress port:port];
         _MFMIDINetworkConnection *src = pair[0], *dest = pair[1];
         [_netConxToRemove removeObject:src];
         [_netConxToRemove removeObject:dest];
@@ -796,6 +839,10 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 
         
         echo("...cleaning out old connections no longer present: %@", _netConxToRemove);
+        // First remove manual connections so they dont get cleaned up
+        _netConxToRemove = [[_netConxToRemove reject:^BOOL(id obj, NSUInteger idx) {
+            return [obj isManualConnection];
+        }] mutableCopy];
         NSMutableArray *newSrcs, *newDests;
         newSrcs = _networkSources.mutableCopy;
         [newSrcs removeObjectsInArray:_netConxToRemove];
@@ -855,8 +902,8 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     }
     
     // They should ALWAYS be in pairs
-    NSParameterAssert(src);
-    NSParameterAssert(dest);
+    NSAssert(src, @"Source missing from pair. Details:\nconx: %@\nsrc: %@\ndest: %@", conx, self.networkSources, self.networkDestinations);
+    NSAssert(dest, @"Destination missing from pair. Details:\nconx: %@\nsrc: %@\ndest: %@", conx, self.networkSources, self.networkDestinations);
     
     // Add just one as it enabled both of them
     if (toEnabled) {
@@ -963,6 +1010,75 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 
     for (NSNumber *endpointNum in srcEndpointsToRemove) {
         [self _disconnectSourceEndpoint:(MIDIEndpointRef)endpointNum.unsignedIntegerValue];
+    }
+}
+
+//---------------------------------------------------------------------
+
+- (NSArray *)_addNetworkConnectionWithName:(NSString *)name address:(NSString *)address port:(NSUInteger)port
+{
+    MIDINetworkHost *host = [MIDINetworkHost hostWithName:name address:address port:port];
+    return [self _addNetworkConnectionWithHost:host];
+}
+
+//---------------------------------------------------------------------
+
+/** @private See notes about NSNetService above. */
+- (NSArray *)_addNetworkConnectionWithHost:(MIDINetworkHost *)host
+{
+    echo("Adding Network Source/Destination pair for host %@", host);
+    
+    // Get the endpoints for the MIDISession
+    MIDIEndpointRef srcEndpoint = [_midiNetSession sourceEndpoint];
+    MIDIEndpointRef destEndpoint = [_midiNetSession destinationEndpoint];
+    
+    // Look for a matching connection in our list
+    // We can search either list
+    _MFMIDINetworkDestination *dest = [[_MFMIDINetworkDestination alloc] initWithEndpoint:destEndpoint client:self host:host];
+    _MFMIDINetworkSource *src = [[_MFMIDINetworkSource alloc] initWithEndpoint:srcEndpoint client:self host:host];
+    
+    NSInteger idx = [_networkDestinations indexOfObject:dest]; // uses isEqual:
+    if (idx != NSNotFound) {
+        return (id)@[_networkSources[idx], _networkDestinations[idx]];
+    }
+    
+    // Add to the list and enable if auto
+    echo("...adding NetworkSource & NetworkDestination to our list.");
+    _networkSources = (id)[_networkSources arrayByAddingObject:src];
+    _networkDestinations = (id)[_networkDestinations arrayByAddingObject:dest];
+    
+    // Handle autoEnable. FYI they ARENT necessarily in the MIDI session if they appear here.
+    // Do both even though they are coupled for futureproofing
+    // The enabled flag is a smart setter and handles MIDISession stuff
+    // Handle auto-enabled / restore
+    [self _setEnabledStateForConnectionBasedOnSettings:src];
+    [self _setEnabledStateForConnectionBasedOnSettings:dest];
+    
+    
+    // And the delegates
+    // NOTE: Why is delegate separate from connect here but for EndpointConnections? B/c for net conns we use the connection/disconnection for enabled/disabled where with Endpoint-based conns, they are always connected (we have no choice i dont think) and we use our enabled flag to determine whether to send. In the end its all b/c there is only 1 Endpoint for ALL network connections. Booooo.
+    [self _notifyDelegatesAboutConnection:src didConnect:YES];
+    [self _notifyDelegatesAboutConnection:dest didConnect:YES];
+    
+    return (id)@[src, dest];
+}
+
+//---------------------------------------------------------------------
+
+/** Recreates the connections and enables/disables them according to their persisted state */
+- (void)_restoreManualNetworkConnections
+{
+    echo("Restoring persisted Manual Network Connections: ");
+    NSDictionary *manualConns = [_userDefs objectForKey:_kUserDefsKeyManualConnections];
+    for (NSString *name in manualConns)
+    {
+        NSDictionary *connDetails = manualConns[name];
+        echo("Recreating Manual Network Connection '%@': %@", name, connDetails);
+        
+        NSArray *conns = [self _addNetworkConnectionWithName:name address:connDetails[@"address"] port:[connDetails[@"port"] integerValue]];
+        [conns[0] setIsManualConnection:YES];
+        [conns[1] setIsManualConnection:YES];
+        // It'll be enabled/disabled automatically via the Enabled State Persistence
     }
 }
 

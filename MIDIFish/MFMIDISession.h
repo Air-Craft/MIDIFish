@@ -50,6 +50,9 @@
 /** Default=YES. YES means ignore the endpoint which shares the same name as this device. */
 @property (nonatomic) BOOL excludeSelfInNetworkScan;
 
+/** Default=YES. YES means to store manual connections added by the client and recall them when refreshing. NO means previously stores ones will NOT be recalled on refresh, though they won't be erased. These are often IP address which don't come up in a Bonjour scan (e.g. Windows users). Note, just because they are persisted does not mean they are enabled */
+@property (nonatomic) BOOL persistManualNetworkConnections;
+
 //@property (nonatomic) BOOL reconnectVirtualConnections;
 //@property (nonatomic) BOOL reconnectNetworkConnections;
 
@@ -128,15 +131,14 @@
 - (id<MFMIDIDestination>)createVirtualSourceWithName:(NSString *)name;
 /** @} */
 
-/** Adds and enables a network host connection pair (Source/Destination - since they are coupled as per the way MIDINetwork works) with the given parameters. DOES trigger delegates 
+/** Adds and enables a network host connection pair (Source/Destination - since they are coupled as per the way MIDINetwork works) with the given parameters. DOES trigger delegates. These will be persisted if this class's corresponding option is set. "name" must be unique or will silently overwrite the existing connections persistence entry
   @return [id<MIDISource>, id<key>] Returns the matching connections if a pair already exists
   @{ */
-- (NSArray *)addNetworkConnectionWithName:(NSString *)name address:(NSString *)address port:(NSUInteger)port;
+- (NSArray *)addManualNetworkConnectionWithName:(NSString *)name address:(NSString *)address port:(NSUInteger)port;
 /** @} */
 
-/** Remove all NSUserDefs related to stored connections including virtual */
-- (void)clearRememberedConnections;
-
+/** Remove's the connection with the specified details from the netsession as well as our internal persistence. Removes from persistence only if the persists... flag is set on the class */
+- (void)forgetManualNetworkConnectionWithName:(NSString *)name;
 
 
 @end

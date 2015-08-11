@@ -46,6 +46,9 @@
 /** Network details for the connection */
 @property (nonatomic, readonly) MIDINetworkHost *host;
 
+/** Set to YES if this was entered manually by the user. Has implications on how we persist it */
+@property (nonatomic, readonly) BOOL isManualConnection;
+
 @end
 
 /////////////////////////////////////////////////////////////////////////

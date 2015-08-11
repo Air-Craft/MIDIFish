@@ -18,7 +18,6 @@
 
 @implementation _MFMIDINetworkConnection
 
-@synthesize host=_host;
 
 - (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(MFMIDISession *__weak)client host:(MIDINetworkHost *)host
 {
@@ -37,6 +36,16 @@
     MIDINetworkHost *host = [MIDINetworkHost hostWithName:netService.name netService:netService];
     return [self initWithEndpoint:endpoint client:client host:host];
 }
+
+/////////////////////////////////////////////////////////////////////////
+#pragma mark - Properties
+/////////////////////////////////////////////////////////////////////////
+
+@synthesize host=_host;
+@synthesize isManualConnection=_isManualConnection;
+
+// Create a setter for MIDISession's readwrite override of the property
+- (void)setIsManualConnection:(BOOL)isManual { _isManualConnection = isManual; }
 
 
 /////////////////////////////////////////////////////////////////////////
