@@ -1,6 +1,6 @@
 //
 //  MFMIDIMessage.h
-//  AC-Sabre
+//  MIDIFish
 //
 //  Created by Hari Karam Singh on 01/02/2015.
 //

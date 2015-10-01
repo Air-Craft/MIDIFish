@@ -1,6 +1,6 @@
 //
 //  _MFMIDINetworkConnection.m
-//  AC-Sabre
+//  MIDIFish
 //
 //  Created by Hari Karam Singh on 02/02/2015.
 //
@@ -36,6 +36,23 @@
     MIDINetworkHost *host = [MIDINetworkHost hostWithName:netService.name netService:netService];
     return [self initWithEndpoint:endpoint client:client host:host];
 }
+
+//---------------------------------------------------------------------
+
+- (void)dealloc
+{
+    // debugging badaccess on midiNetCon dealloc
+    _host = nil;
+    _midiNetworkConnection = nil;
+}
+
+//---------------------------------------------------------------------
+
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"<%@: %@ (endpoint=%i, enabled=%@, host=%@)>", NSStringFromClass(self.class), self.name, self.endpoint, self.enabled?@"YES":@"NO", self.host];
+}
+
 
 /////////////////////////////////////////////////////////////////////////
 #pragma mark - Properties

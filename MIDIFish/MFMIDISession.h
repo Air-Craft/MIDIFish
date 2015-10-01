@@ -1,6 +1,6 @@
 //
 //  MFMIDIServer.h
-//  AC-Sabre
+//  MIDIFish
 //
 //  Created by Hari Karam Singh on 01/02/2015.
 //
@@ -139,6 +139,12 @@
 
 /** Remove's the connection with the specified details from the netsession as well as our internal persistence. Removes from persistence only if the persists... flag is set on the class */
 - (void)forgetManualNetworkConnectionWithName:(NSString *)name;
+
+/** Some introspection on the state of connections. "Available" includes those which are disabled */
+- (NSUInteger)availableSourcesCountIncludeVirtual:(BOOL)includeVirtual;
+- (NSUInteger)availableDestinationsCountIncludeVirtual:(BOOL)includeVirtual;
+- (NSUInteger)enabledSourcesCountIncludeVirtual:(BOOL)includeVirtual;
+- (NSUInteger)enabledDestinationsCountIncludeVirtual:(BOOL)includeVirtual;
 
 
 @end

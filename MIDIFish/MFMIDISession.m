@@ -1,6 +1,6 @@
 //
 //  MFMIDIServer.m
-//  AC-Sabre
+//  MIDIFish
 //
 //  Created by Hari Karam Singh on 01/02/2015.
 //
@@ -39,6 +39,14 @@
 /////////////////////////////////////////////////////////////////////////
 #pragma mark - Defs
 /////////////////////////////////////////////////////////////////////////
+
+/** Convert MIDIEndpointsRefs to object. In 64bit they are integers. in 32bit they are struct pointers :(. Note they need to compare well as they are placed in arrays and checked with `containsObject:` */
+#if __LP64__
+#define _EP2Obj(endpoint) @(endpoint);
+#else
+#define _EP2Obj(endpoint) [NSValue valueWithPointer:endpoint];
+#endif
+
 
 /** Timeout for resolving Bonjour names into IP/Port addresses. 5 was too short sometimes */
 static const NSTimeInterval _NETSERVICE_RESOLVE_TIMEOUT = 15;   // seconds
@@ -228,6 +236,12 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
     
     [self _notifyDelegatesConnectionRefreshDidBegin];
 
+    // Enable to more easily debug the "repeat refresh causes MIDINetworkConnectio bad access on deconstruct" errors
+//    _networkDestinations = @[];
+//    _networkSources = @[];
+//    _destinationEndpoints = @[].mutableCopy;
+//    _sourceEndpoints = @[].mutableCopy;
+    
     // Rescan endpoints/direct connections and
     [self _refreshConnectionsForMIDIEndpoints];
     
@@ -407,6 +421,46 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
     }
 }
 
+//---------------------------------------------------------------------
+
+- (NSUInteger)availableSourcesCountIncludeVirtual:(BOOL)includeVirtual
+{
+    NSArray *connections = [_networkSources arrayByAddingObjectsFromArray:_endpointSources];
+    return [connections bk_select:^BOOL(id<MFMIDIConnection> conn) {
+        return includeVirtual || !conn.isVirtualConnection;
+    }].count;
+}
+
+//---------------------------------------------------------------------
+
+- (NSUInteger)availableDestinationsCountIncludeVirtual:(BOOL)includeVirtual
+{
+    NSArray *connections = [_networkDestinations arrayByAddingObjectsFromArray:_endpointDestinations];
+    return [connections bk_select:^BOOL(id<MFMIDIConnection> conn) {
+        return includeVirtual || !conn.isVirtualConnection;
+    }].count;
+}
+
+//---------------------------------------------------------------------
+
+- (NSUInteger)enabledSourcesCountIncludeVirtual:(BOOL)includeVirtual
+{
+    NSArray *connections = [_networkSources arrayByAddingObjectsFromArray:_endpointSources];
+    return [connections bk_select:^BOOL(id<MFMIDIConnection> conn) {
+        return conn.enabled && (includeVirtual || !conn.isVirtualConnection);
+    }].count;
+}
+
+//---------------------------------------------------------------------
+
+- (NSUInteger)enabledDestinationsCountIncludeVirtual:(BOOL)includeVirtual
+{
+    NSArray *connections = [_networkDestinations arrayByAddingObjectsFromArray:_endpointDestinations];
+    return [connections bk_select:^BOOL(id<MFMIDIConnection> conn) {
+        return conn.enabled && (includeVirtual || !conn.isVirtualConnection);
+    }].count;
+}
+
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -448,7 +502,7 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
     // Network Conx
     if (self.networkDestinations.count > 0)
     {
-        MIDIEntityRef endpoint = [self.networkDestinations[0] endpoint];
+        MIDIEndpointRef endpoint = [self.networkDestinations[0] endpoint];
         OSStatus s = MIDISend(_outputPortRef, endpoint, packetList);
         if (res == noErr && s != noErr) res = s;    // track the first error
     }
@@ -815,7 +869,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
         _MFMIDINetworkConnection *src = pair[0], *dest = pair[1];
         [_netConxToRemove removeObject:src];
         [_netConxToRemove removeObject:dest];
-        
+
         // Don't keep resolving if we have a legit IPv4 address.
         [sender stop];
         
@@ -837,12 +891,12 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     {
         echo("NETSERVICE: All done! Cleaning up...");
 
-        
-        echo("...cleaning out old connections no longer present: %@", _netConxToRemove);
         // First remove manual connections so they dont get cleaned up
         _netConxToRemove = [[_netConxToRemove reject:^BOOL(id obj, NSUInteger idx) {
             return [obj isManualConnection];
         }] mutableCopy];
+        
+        echo("...cleaning out old connections no longer present: %@", _netConxToRemove);
         NSMutableArray *newSrcs, *newDests;
         newSrcs = _networkSources.mutableCopy;
         [newSrcs removeObjectsInArray:_netConxToRemove];
@@ -958,19 +1012,20 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     for (NSUInteger index = 0; index < destinationCnt; ++index)
     {
         MIDIEndpointRef endpoint = MIDIGetDestination(index);
+        NSObject *endpointObj = _EP2Obj(endpoint); // normalise 32bit and 64bit heterogony
         
         // Skip virtuals
         if ([self _endpointIsForVirtualConnection:endpoint]) {
-            [srcEndpointsToRemove removeObject:@(endpoint)]; //see notes below
-            echo("...Endpoint %i is Virtual, skipping", (int)endpoint);
+            [srcEndpointsToRemove removeObject:endpointObj]; //see notes below
+            echo("...Endpoint %@ is Virtual, skipping", endpointObj);
             continue;
         }
         
         // Already exists? Remove from remove list :) Effectively a no-op on that endpoint
         // Otherwise connect it
-        if ([_destinationEndpoints containsObject:@(endpoint)]) {
-            echo("...Destination Endpoint %i already in our list", (int)endpoint);
-            [destEndpointsToRemove removeObject:@(endpoint)];
+        if ([_destinationEndpoints containsObject:endpointObj]) {
+            echo("...Destination Endpoint %@ already in our list", endpointObj);
+            [destEndpointsToRemove removeObject:endpointObj];
         } else {
             [self _connectDestinationEndpoint:endpoint];
         }
@@ -984,19 +1039,20 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     for (NSUInteger index = 0; index < sourceCnt; ++index)
     {
         MIDIEndpointRef endpoint = MIDIGetSource(index);
+        NSObject *endpointObj = _EP2Obj(endpoint); // normalise 32bit and 64bit heterogony
         
         // Skip virtuals
         if ([self _endpointIsForVirtualConnection:endpoint]) {
-            [destEndpointsToRemove removeObject:@(endpoint)]; //see notes below
-            echo("...Endpoint %i is Virtual, skipping", (int)endpoint);
+            [destEndpointsToRemove removeObject:endpointObj]; //see notes below
+            echo("...Endpoint %@ is Virtual, skipping", endpointObj);
             continue;
         }
 
         // Already exists? Remove from remove list :) Effectively a no-op on that endpoint
         // Otherwise connect it
-        if ([_sourceEndpoints containsObject:@(endpoint)]) {
-            echo("...Source Endpoint %i already in our list", (int)endpoint);
-            [srcEndpointsToRemove removeObject:@(endpoint)];
+        if ([_sourceEndpoints containsObject:endpointObj]) {
+            echo("...Source Endpoint %@ already in our list", endpointObj);
+            [srcEndpointsToRemove removeObject:endpointObj];
         } else {
             [self _connectSourceEndpoint:endpoint];
         }
@@ -1039,13 +1095,13 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     
     NSInteger idx = [_networkDestinations indexOfObject:dest]; // uses isEqual:
     if (idx != NSNotFound) {
-        return (id)@[_networkSources[idx], _networkDestinations[idx]];
+        return @[_networkSources[idx], _networkDestinations[idx]];
     }
     
     // Add to the list and enable if auto
     echo("...adding NetworkSource & NetworkDestination to our list.");
-    _networkSources = (id)[_networkSources arrayByAddingObject:src];
-    _networkDestinations = (id)[_networkDestinations arrayByAddingObject:dest];
+    _networkSources = [_networkSources arrayByAddingObject:src];
+    _networkDestinations = [_networkDestinations arrayByAddingObject:dest];
     
     // Handle autoEnable. FYI they ARENT necessarily in the MIDI session if they appear here.
     // Do both even though they are coupled for futureproofing
@@ -1057,10 +1113,10 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     
     // And the delegates
     // NOTE: Why is delegate separate from connect here but for EndpointConnections? B/c for net conns we use the connection/disconnection for enabled/disabled where with Endpoint-based conns, they are always connected (we have no choice i dont think) and we use our enabled flag to determine whether to send. In the end its all b/c there is only 1 Endpoint for ALL network connections. Booooo.
-    [self _notifyDelegatesAboutConnection:src didConnect:YES];
-    [self _notifyDelegatesAboutConnection:dest didConnect:YES];
+   [self _notifyDelegatesAboutConnection:src didConnect:YES];
+   [self _notifyDelegatesAboutConnection:dest didConnect:YES];
     
-    return (id)@[src, dest];
+    return @[src, dest];
 }
 
 //---------------------------------------------------------------------
@@ -1099,12 +1155,14 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
  */
 - (_MFMIDIEndpointDestination *)_connectDestinationEndpoint:(MIDIEndpointRef)endpoint
 {
+    NSObject *endpointObj = _EP2Obj(endpoint); // normalise 32bit and 64bit heterogony
+    
     // Uniqueness is handled by the NSMutableArray
-    [_destinationEndpoints addObject:@(endpoint)];
+    [_destinationEndpoints addObject:endpointObj];
     
     if (_MFIsNetworkSessionEndpoint(endpoint))
     {
-        echo("Added Destination Endpoint %i (is a Network Endpoint - NOT creating MIDIDestination)", (int)endpoint);
+        echo("Added Destination Endpoint %@ (is a Network Endpoint - NOT creating MIDIDestination)", endpointObj);
         // Dont create our objects for Network endpoints as we treat the individual Network Hosts as "Connections" which requires some re-interpreting of how CoreMIDI works.  CoreMIDI has ALL network connections go through a single endpoint which is a bit weary IMO
         return nil;
     }
@@ -1115,7 +1173,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
         
         [self _setEnabledStateForConnectionBasedOnSettings:dest];
         
-        echo(@"Added Destination Endpoint %i called \"%@\" (enabled=%@)", (int)endpoint, dest.name, dest.enabled?@"YES":@"NO");
+        echo(@"Added Destination Endpoint called \"%@\" (enabled=%@)", endpointObj, dest.name, dest.enabled?@"YES":@"NO");
         
         // Notify delegates
         [self _notifyDelegatesAboutConnection:dest didConnect:YES];
@@ -1131,12 +1189,14 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
  */
 - (_MFMIDIEndpointSource *)_connectSourceEndpoint:(MIDIEndpointRef)endpoint
 {
+    NSObject *endpointObj = _EP2Obj(endpoint); // normalise 32bit and 64bit heterogony
+    
     // Uniqueness is handled by the NSMutableArray
-    [_sourceEndpoints addObject:@(endpoint)];
+    [_sourceEndpoints addObject:endpointObj];
     
     if (_MFIsNetworkSessionEndpoint(endpoint))
     {
-        echo("Added Source Endpoint %i (is a Network Endpoint - NOT creating MIDISource)", (int)endpoint);
+        echo("Added Source Endpoint %@ (is a Network Endpoint - NOT creating MIDISource)", endpointObj);
         return nil;
     }
     else
@@ -1146,7 +1206,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
         
         [self _setEnabledStateForConnectionBasedOnSettings:src];
         
-        echo(@"Added Source Endpoint %i called \"%@\" (enabled=%@)", (int)endpoint, src.name, src.enabled?@"YES":@"NO");
+        echo(@"Added Source Endpoint %@ called \"%@\" (enabled=%@)", endpointObj, src.name, src.enabled?@"YES":@"NO");
         
         [self _notifyDelegatesAboutConnection:src didConnect:YES];
         return src;
@@ -1158,8 +1218,10 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 /** Internally remove the references for an endpoint that has been removed by CoreMIDI. Notify delegates */
 - (void)_disconnectDestinationEndpoint:(MIDIEndpointRef)endpoint;
 {
-    [_destinationEndpoints removeObject:@(endpoint)];
-    echo("Disconnected Endpoint %i", (int)endpoint);
+    NSObject *endpointObj = _EP2Obj(endpoint); // normalise 32bit and 64bit heterogony
+    
+    [_destinationEndpoints removeObject:endpointObj];
+    echo("Disconnected Endpoint %@", endpointObj);
     
     // ~~There could be a several MIDIDestination objects with the same endpoint, particularly Network ones~~ No longer true I dont think b/c we track them in separate ivars now. But just in case we'll leave this...
     NSPredicate *pred = [NSPredicate predicateWithFormat:@"endpoint == %u", (unsigned)endpoint];
@@ -1180,12 +1242,18 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 
 - (void)_disconnectSourceEndpoint:(MIDIEndpointRef)endpoint;
 {
-    [_sourceEndpoints removeObject:@(endpoint)];
-    echo("Disconnected Endpoint %i", (int)endpoint);
+    NSObject *endpointObj = _EP2Obj(endpoint); // normalise 32bit and 64bit heterogony
+    
+    [_sourceEndpoints removeObject:endpointObj];
+    echo("Disconnected Endpoint %@", endpointObj);
     
     // ~~There could be a several MIDISource objects with the same endpoint, particularly Network ones~~ No longer true I dont think b/c we track them in separate ivars now. But just in case we'll leave this...
-
-    NSPredicate *pred = [NSPredicate predicateWithFormat:@"endpoint == %u", (unsigned)endpoint];
+#if __LP64__
+    NSPredicate *pred = [NSPredicate predicateWithFormat:@"endpoint == %lu", endpoint];
+#else
+    NSPredicate *pred = [NSPredicate predicateWithFormat:@"endpoint == %p", endpoint];
+#endif 
+    
     NSArray *srcObjects = [_endpointSources filteredArrayUsingPredicate:pred];
     for (id<MFMIDISource>src in srcObjects)
     {
@@ -1339,7 +1407,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 - (NSString *)_storageIDForConnection:(_MFMIDIConnection *)conx
 {
     NSString *idStr;
-    // Use the name but try to avoid collisions
+    // Use the name but try to avoid collisions. Don't include the host address so we can be smart about the same machine connecting on different IP addresses
     if ([conx isKindOfClass:[_MFMIDINetworkSource class]])
     {
         idStr = [NSString stringWithFormat:@"%@::%@::%@", @"network", @"source", conx.name];

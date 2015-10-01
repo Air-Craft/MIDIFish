@@ -1,6 +1,6 @@
 //
 //  MFMIDISession_Private.h
-//  AC-Sabre
+//  MIDIFish
 //
 //  Created by Hari Karam Singh on 05/02/2015.
 //
