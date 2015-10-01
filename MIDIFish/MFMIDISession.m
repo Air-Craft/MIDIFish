@@ -406,8 +406,10 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
     destination.enabled = NO;
     
     // Remove them from the connections list
-    _networkSources = [_networkSources arrayDifferenceWithArray:@[source]];
-    _networkDestinations = [_networkDestinations arrayDifferenceWithArray:@[destination]];
+    NSPredicate *pred = [NSPredicate predicateWithFormat:@"SELF != %@", source];
+    _networkSources = [_networkSources filteredArrayUsingPredicate:pred];
+    NSPredicate *pred2 = [NSPredicate predicateWithFormat:@"SELF != %@", destination];
+    _networkDestinations = [_networkDestinations filteredArrayUsingPredicate:pred2];
     
     // Remove from the UserDefs if set
     if (_persistManualNetworkConnections)
@@ -426,9 +428,14 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 - (NSUInteger)availableSourcesCountIncludeVirtual:(BOOL)includeVirtual
 {
     NSArray *connections = [_networkSources arrayByAddingObjectsFromArray:_endpointSources];
-    return [connections bk_select:^BOOL(id<MFMIDIConnection> conn) {
-        return includeVirtual || !conn.isVirtualConnection;
-    }].count;
+
+    if (includeVirtual) return connections.count;
+    
+    NSUInteger cnt = 0;
+    for (id<MFMIDIConnection> conn in connections) {
+        if (!conn.isVirtualConnection) cnt++;
+    }
+    return cnt;
 }
 
 //---------------------------------------------------------------------
@@ -436,9 +443,14 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 - (NSUInteger)availableDestinationsCountIncludeVirtual:(BOOL)includeVirtual
 {
     NSArray *connections = [_networkDestinations arrayByAddingObjectsFromArray:_endpointDestinations];
-    return [connections bk_select:^BOOL(id<MFMIDIConnection> conn) {
-        return includeVirtual || !conn.isVirtualConnection;
-    }].count;
+
+    if (includeVirtual) return connections.count;
+    
+    NSUInteger cnt = 0;
+    for (id<MFMIDIConnection> conn in connections) {
+        if (!conn.isVirtualConnection) cnt++;
+    }
+    return cnt;
 }
 
 //---------------------------------------------------------------------
@@ -446,9 +458,13 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 - (NSUInteger)enabledSourcesCountIncludeVirtual:(BOOL)includeVirtual
 {
     NSArray *connections = [_networkSources arrayByAddingObjectsFromArray:_endpointSources];
-    return [connections bk_select:^BOOL(id<MFMIDIConnection> conn) {
-        return conn.enabled && (includeVirtual || !conn.isVirtualConnection);
-    }].count;
+    
+    NSUInteger cnt = 0;
+    for (id<MFMIDIConnection> conn in connections) {
+        if (conn.enabled && (includeVirtual || !conn.isVirtualConnection))
+            cnt++;
+    }
+    return cnt;
 }
 
 //---------------------------------------------------------------------
@@ -456,9 +472,13 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 - (NSUInteger)enabledDestinationsCountIncludeVirtual:(BOOL)includeVirtual
 {
     NSArray *connections = [_networkDestinations arrayByAddingObjectsFromArray:_endpointDestinations];
-    return [connections bk_select:^BOOL(id<MFMIDIConnection> conn) {
-        return conn.enabled && (includeVirtual || !conn.isVirtualConnection);
-    }].count;
+    
+    NSUInteger cnt = 0;
+    for (id<MFMIDIConnection> conn in connections) {
+        if (conn.enabled && (includeVirtual || !conn.isVirtualConnection))
+            cnt++;
+    }
+    return cnt;
 }
 
 
@@ -892,9 +912,8 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
         echo("NETSERVICE: All done! Cleaning up...");
 
         // First remove manual connections so they dont get cleaned up
-        _netConxToRemove = [[_netConxToRemove reject:^BOOL(id obj, NSUInteger idx) {
-            return [obj isManualConnection];
-        }] mutableCopy];
+        NSPredicate *pred = [NSPredicate predicateWithFormat:@"SELF.isManualConnection == 0"];
+        _netConxToRemove = [_netConxToRemove filteredArrayUsingPredicate:pred].mutableCopy;
         
         echo("...cleaning out old connections no longer present: %@", _netConxToRemove);
         NSMutableArray *newSrcs, *newDests;

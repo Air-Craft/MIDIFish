@@ -11,9 +11,7 @@
 
 #import "MFProtocols.h"
 #import "MFMIDIMessage.h"
-#import "_MFMIDINetworkConnection.h"
-#import "_MFMIDIEndpointSource.h"
-#import "_MFMIDIEndpointDestination.h"
+
 
 /////////////////////////////////////////////////////////////////////////
 #pragma mark -
