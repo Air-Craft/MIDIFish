@@ -1,6 +1,39 @@
 # MIDIFish
 
-Translating the arcane language of CoreMIDI into what you see in front of you.
+Translating the arcane language of CoreMIDI into one natural to iOS.
+
+## Features ##
+
+* High level semantics for MIDI operations, e.g. `sendPitchbend`
+* Normalises the API for both Network and Hardware/Interapp (virtual) connections  
+* NetworkMIDI scanning made easy(er) with optional "ignore self"
+* UserDefaults stores and restores manual connections
+* Arbitrary number of virtual source/destinations
+* API Simplicity with optional granularity, and public exposure of CoreMIDI objects as well
+
+
+## Usage ##
+
+### Basic Usage ###
+
+````
+_midiSession = [MFMIDISession sessionWithName:@"Your App Name"];
+_midiSession.networkEnabled = YES;
+_midiSession.restorePreviousConnectionStates = YES;
+_midiSession.autoEnableDestinations = YES;
+_midiSession.channel = 0;
+        
+// Create the Virtual Source to expose to other apps
+[_midiSession createVirtualSourceWithName:_midiSession.name]; // disabled by default
+
+// ...some time later...
+[_midiSession sendNoteOn:64 velocity:127];
+[_midiSession sendPitchbend:0x3FFF];
+// etc
+
+````
+
+For more, see the `MFMIDISession.h`.
 
 
 ## Terminology ##
