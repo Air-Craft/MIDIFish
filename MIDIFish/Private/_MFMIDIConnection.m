@@ -25,7 +25,7 @@
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@: %@ (endpoint=%i, enabled=%@)>", NSStringFromClass(self.class), self.name, self.endpoint, self.enabled?@"YES":@"NO"];
+    return [NSString stringWithFormat:@"<%@: %@ (endpoint=%@, enabled=%@)>", NSStringFromClass(self.class), self.name, @(self.endpoint), self.enabled?@"YES":@"NO"];
 }
 
 /////////////////////////////////////////////////////////////////////////

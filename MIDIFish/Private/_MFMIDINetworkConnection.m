@@ -50,7 +50,7 @@
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@: %@ (endpoint=%i, enabled=%@, host=%@)>", NSStringFromClass(self.class), self.name, self.endpoint, self.enabled?@"YES":@"NO", self.host];
+    return [NSString stringWithFormat:@"<%@: %@ (endpoint=%@, enabled=%@, host=%@)>", NSStringFromClass(self.class), self.name, @(self.endpoint), self.enabled?@"YES":@"NO", self.host];
 }
 
 

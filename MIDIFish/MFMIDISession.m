@@ -41,11 +41,11 @@
 /////////////////////////////////////////////////////////////////////////
 
 /** Convert MIDIEndpointsRefs to object. In 64bit they are integers. in 32bit they are struct pointers :(. Note they need to compare well as they are placed in arrays and checked with `containsObject:` */
-#if __LP64__
+//#if __LP64__
 #define _EP2Obj(endpoint) @(endpoint);
-#else
-#define _EP2Obj(endpoint) [NSValue valueWithPointer:endpoint];
-#endif
+//#else
+//#define _EP2Obj(endpoint) [NSValue valueWithPointer:endpoint];
+//#endif
 
 
 /** Timeout for resolving Bonjour names into IP/Port addresses. 5 was too short sometimes */
