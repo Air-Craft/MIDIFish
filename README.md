@@ -2,6 +2,8 @@
 
 Translating the arcane language of CoreMIDI into one natural to iOS.
 
+_Note: This framework is still not feature complete. Most notably, MIDI Receive operations have no effect at this time._
+
 ## Features ##
 
 * High level semantics for MIDI operations, e.g. `sendPitchbend`
@@ -40,6 +42,7 @@ For more, see the `MFMIDISession.h`.
 ## Terminology ##
 
 _Connection:_ A source or destination for MIDI Messages
+
 _Message_: NoteOn, NoteOff, CC, Pitchbend, Program Change, Channel Aftertouch, Poly Aftertouch, Sysex
 
 _Virtual Source/Destination_: Connections which we create in the app with a specified name which show up in other apps. Keep in mind that when the app is a VirtualSource it means it is a MIDISource for *other* apps. Locally it appears as a MIDIDestination because we output to it
