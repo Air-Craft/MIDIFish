@@ -22,12 +22,12 @@ Pod::Spec.new do |s|
   s.social_media_url   = "http://twitter.com/AirCraftHQ"
 
   s.platform     = :ios, "7.0"
-  s.source       = { :git => "https://github.com/Air-Craft/MIDIFish.git", :tag => "0.1.0" }
+  s.source       = { :git => "https://github.com/Air-Craft/MIDIFish.git", :tag => s.version.to_s }
 
   s.source_files  = "MIDIFish/**/*.{h,m}"
   s.public_header_files = "MIDIFish/*.h"
-  s.resource  = "MIDIFish/Localizable.strings"
-
+  s.resource  = "MIDIFish,bundle"
+  s.preserve_paths =  'MIDIFish,bundle'
   s.frameworks  = "Foundation", "CoreMIDI"
 
   s.requires_arc = true
