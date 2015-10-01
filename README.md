@@ -47,7 +47,7 @@ _Message_: NoteOn, NoteOff, CC, Pitchbend, Program Change, Channel Aftertouch, P
 
 _Virtual Source/Destination_: Connections which we create in the app with a specified name which show up in other apps. Keep in mind that when the app is a VirtualSource it means it is a MIDISource for *other* apps. Locally it appears as a MIDIDestination because we output to it
 
-_ connect vs enable:_ "Connect" refers to discovering the existence of a physical/virtual/wifi connection. All devices are auto-connected so-to-speak in that they are discovered by the system scan. "Enable" indicates whether they send/receive midi messages when you send them through MIDISession. This is slightly confusing in the code as "en/disabling" a Network Connection does indeed "connect/disconnect" the host from the MIDINetworkSession (see notes above). This is one example of the abnormal lingo in CoreMIDI that MIDIFish seeks to normalise.
+_"Connect" vs "Enable":_ "Connect" refers to discovering the existence of a physical/virtual/wifi connection. All devices are auto-connected so-to-speak in that they are discovered by the system scan. "Enable" indicates whether they send/receive midi messages when you send them through MIDISession. This is slightly confusing in the code as "en/disabling" a Network Connection does indeed "connect/disconnect" the host from the MIDINetworkSession (see notes above). This is one example of the abnormal lingo in CoreMIDI that MIDIFish seeks to normalise.
 
 ## Connection Persistence ##
 
