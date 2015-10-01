@@ -5,11 +5,12 @@ Translating the arcane language of CoreMIDI into one natural to iOS.
 ## Features ##
 
 * High level semantics for MIDI operations, e.g. `sendPitchbend`
-* Normalises the API for both Network and Hardware/Interapp (virtual) connections  
-* NetworkMIDI scanning made easy(er) with optional "ignore self"
-* UserDefaults stores and restores manual connections
+* Normalises the API for Network, Hardware/App, and Virtual connections  
+* Network MIDI scanning made easy(er)
+* UserDefaults stores and restores manual network connections
 * Arbitrary number of virtual source/destinations
-* API Simplicity with optional granularity, and public exposure of CoreMIDI objects as well
+* API Simplicity with optional granularity,
+* Public exposure of CoreMIDI objects for digging deeper
 
 
 ## Usage ##
