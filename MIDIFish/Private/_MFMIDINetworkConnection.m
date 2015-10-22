@@ -11,6 +11,7 @@
 #import "_MFMIDINetworkConnection.h"
 #import "_MFUtilities.h"
 
+static NSMutableArray *_tmpRetainer;
 
 /////////////////////////////////////////////////////////////////////////
 #pragma mark -
@@ -25,6 +26,8 @@
     if (self) {
         _host = host;
         _midiNetworkConnection = [MIDINetworkConnection connectionWithHost:host];
+        if (!_tmpRetainer) { _tmpRetainer = [NSMutableArray array]; }
+        [_tmpRetainer addObject:_midiNetworkConnection];
     }
     return self;
 }

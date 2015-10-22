@@ -27,7 +27,7 @@
 
 // Channelised Logging
 #undef echo
-#if DEBUG && (!defined(LOG_MIDIFISH) || LOG_MIDIFISH)
+#if LOG_MIDIFISH
 #   define echo(fmt, ...) NSLog((@"[MIDIFISH] " fmt), ##__VA_ARGS__);
 #else
 #   define echo(...)
