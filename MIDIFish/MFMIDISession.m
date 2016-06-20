@@ -351,9 +351,13 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
     
     NSArray *conns = [self _addNetworkConnectionWithName:name address:address port:port];
     
+    [conns[0] setIsManualConnection:YES];
+    [conns[1] setIsManualConnection:YES];
+    
     // We need to for enablding as _addNetwork... will result in it obeying the autoEnableDestination flag which isnt really what we want here
     _MFMIDINetworkConnection *conn = conns[1];
     conn.enabled = YES;
+    
     [self _storeConnectionEnabledState:conn];
     
     // Store in userdefs if specified
