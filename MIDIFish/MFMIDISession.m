@@ -5,12 +5,18 @@
 //  Created by Hari Karam Singh on 01/02/2015.
 //
 //
+
+// Is there a way to make this less explicit?
+#import "Audiobus/Audiobus.h"
+
 #import <CoreMIDI/CoreMIDI.h>
 #import <CoreMIDI/MIDINetworkSession.h>
 #import "MFMIDISession.h"
 #import "MFMIDISession_Private.h"
 
 #import "MFNonFatalException.h"
+#import "MFAudiobusConnection.h"
+#import "MFAudiobusDestination.h"
 #import "_MFUtilities.h"
 #import "_MFMIDINetworkConnection.h"
 #import "_MFMIDIEndpointConnection.h"
@@ -69,11 +75,12 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 
 @interface MFMIDISession () <NSNetServiceBrowserDelegate, NSNetServiceDelegate>
 @property (nonatomic, readwrite) BOOL isRefreshing;
+@property (nonatomic, readwrite) NSMutableArray *audiobusDestinations;
 @end
 
 //---------------------------------------------------------------------
 
-@interface _MFMIDIConnection ()
+@interface _MFCoreMIDIConnection ()
 @property (nonatomic, readwrite) BOOL isVirtualConnection;
 /** Update the enabled ivar alone - ie without updating MIDINetworkSession */
 - (void)_setEnabledFlag:(BOOL)enabled;
@@ -104,6 +111,9 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
  */
 @implementation MFMIDISession
 {
+    ABAudiobusController *_abController;    // @TODO: Make this less dependent on AB libs
+                                            // Audiobus tells us when to ignore CoreMIDI
+    
     MIDIClientRef _clientRef;
     MIDIPortRef _outputPortRef;
     MIDIPortRef _inputPortRef;
@@ -156,8 +166,11 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
         _delegates = [NSMutableArray array];
         _midiNetSession = [MIDINetworkSession defaultSession];
         _userDefs = [NSUserDefaults standardUserDefaults];
-
+        _audiobusDestinations = [NSMutableArray array];
+        
         _midiNetSession.connectionPolicy = MIDINetworkConnectionPolicy_Anyone;
+        
+        _coreMIDISendEnabled = YES;
         
         // Create the MIDI I/O structure
         OSStatus s;
@@ -432,12 +445,18 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 - (NSUInteger)availableSourcesCountIncludeVirtual:(BOOL)includeVirtual
 {
     NSArray *connections = [_networkSources arrayByAddingObjectsFromArray:_endpointSources];
-
+    
     if (includeVirtual) return connections.count;
     
     NSUInteger cnt = 0;
     for (id<MFMIDIConnection> conn in connections) {
-        if (!conn.isVirtualConnection) cnt++;
+        if ([conn isKindOfClass:[_MFCoreMIDIConnection class]]) {
+            if (!((_MFCoreMIDIConnection *)conn).isVirtualConnection) {
+                cnt++;
+            }
+        } else {
+            cnt++;
+        }
     }
     return cnt;
 }
@@ -447,12 +466,19 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 - (NSUInteger)availableDestinationsCountIncludeVirtual:(BOOL)includeVirtual
 {
     NSArray *connections = [_networkDestinations arrayByAddingObjectsFromArray:_endpointDestinations];
-
+    connections = [connections arrayByAddingObjectsFromArray:_audiobusDestinations];
+    
     if (includeVirtual) return connections.count;
     
     NSUInteger cnt = 0;
     for (id<MFMIDIConnection> conn in connections) {
-        if (!conn.isVirtualConnection) cnt++;
+        if ([conn isKindOfClass:[_MFCoreMIDIConnection class]]) {
+            if (!((_MFCoreMIDIConnection *)conn).isVirtualConnection) {
+                cnt++;
+            }
+        } else {
+            cnt++;
+        }
     }
     return cnt;
 }
@@ -464,7 +490,7 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
     NSArray *connections = [_networkSources arrayByAddingObjectsFromArray:_endpointSources];
     
     NSUInteger cnt = 0;
-    for (id<MFMIDIConnection> conn in connections) {
+    for (_MFCoreMIDIConnection *conn in connections) {
         if (conn.enabled && (includeVirtual || !conn.isVirtualConnection))
             cnt++;
     }
@@ -476,13 +502,57 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 - (NSUInteger)enabledDestinationsCountIncludeVirtual:(BOOL)includeVirtual
 {
     NSArray *connections = [_networkDestinations arrayByAddingObjectsFromArray:_endpointDestinations];
+    connections = [connections arrayByAddingObjectsFromArray:_audiobusDestinations];
     
     NSUInteger cnt = 0;
     for (id<MFMIDIConnection> conn in connections) {
-        if (conn.enabled && (includeVirtual || !conn.isVirtualConnection))
-            cnt++;
+        if (!conn.enabled) continue;
+        if (!includeVirtual && [conn isKindOfClass:[_MFCoreMIDIConnection class]] && ((_MFCoreMIDIConnection *)conn).isVirtualConnection)
+            continue;
+        cnt++;
     }
     return cnt;
+}
+
+
+
+/////////////////////////////////////////////////////////////////////////
+#pragma mark - Audiobus
+/////////////////////////////////////////////////////////////////////////
+
+- (void)assignAudiobusController:(ABAudiobusController *)abController
+{
+    NSParameterAssert(abController);
+    _abController = abController;
+    
+    // Handle core midi enable/disable
+    @weakify(self);
+    [_abController setEnableSendingCoreMIDIBlock:^(BOOL enableCoreMIDI) {
+        _coreMIDISendEnabled = enableCoreMIDI;
+        @strongify(self);
+        echo("CoreMIDI Enabled = %@", self->_coreMIDISendEnabled?@"YES":@"NO");
+    }];
+}
+
+//---------------------------------------------------------------------
+
+- (void)addAudiobusDestination:(MFAudiobusDestination *)abDestination
+{
+    if ([_audiobusDestinations containsObject:abDestination]) {
+        NSAssert(NO, @"Already contains the given MFAudiobusDestination");
+    }
+    
+    [_audiobusDestinations addObject: abDestination];
+}
+
+//---------------------------------------------------------------------
+
+- (MFAudiobusDestination *)createAudiobusSenderPortWithName:(NSString *)name title:(NSString *)title
+{
+    NSAssert(_abController, @"Must call assignAudiobusController: first!");
+    MFAudiobusDestination *abDest = [[MFAudiobusDestination alloc] initWithName:name title:title controller:_abController];
+    [self addAudiobusDestination:abDest];
+    return abDest;
 }
 
 
@@ -498,54 +568,54 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 {
     echo(@"Sending MIDI Message %@", message);
     
-    // Form a MIDIPacketList (thanks PGMIDI!)
-    NSParameterAssert(message.length < 65536);
-    Byte packetBuffer[message.length + 100];
-    MIDIPacketList *packetList = (MIDIPacketList *)packetBuffer;
-    MIDIPacket     *packet     = MIDIPacketListInit(packetList);
-    
-    packet = MIDIPacketListAdd(packetList, sizeof(packetBuffer), packet, 0, message.length, message.bytes);
-    
-    // Most efficient for now is to loop through _destinations sending to the endpoints of those which are enabled skipping the network ones. Then doing *1* network one at the end if available (as they share the same endpoint
-    OSStatus res = noErr;
-    for (_MFMIDIConnection *conx in _endpointDestinations)
-    {
-        if (!conx.enabled) continue;
-
-        // MIDI Source acts the other way aroud
-        OSStatus s;
-        if (conx.isVirtualConnection) {
-            s = MIDIReceived(conx.endpoint, packetList);
-        } else {
-            s = MIDISend(_outputPortRef, conx.endpoint, packetList);
+    [message toMIDIPacketList:^(MIDIPacketList *packetList) {
+        // Most efficient for now is to loop through _destinations sending to the endpoints of those which are enabled skipping the network ones. Then doing *1* network one at the end if available (as they share the same endpoint
+        if (_coreMIDISendEnabled) {
+            OSStatus res = noErr;
+            for (_MFCoreMIDIConnection *conx in _endpointDestinations)
+            {
+                if (!conx.enabled) continue;
+                
+                // MIDI Source acts the other way aroud
+                OSStatus s;
+                if (conx.isVirtualConnection) {
+                    s = MIDIReceived(conx.endpoint, packetList);
+                } else {
+                    s = MIDISend(_outputPortRef, conx.endpoint, packetList);
+                }
+                
+                if (res == noErr && s != noErr) res = s;    // track the first error
+            }
+            
+            // Network Conx
+            // (No loop required as NetworkMIDI sends to them all)
+            if (self.networkDestinations.count > 0)
+            {
+                MIDIEndpointRef endpoint = [(_MFCoreMIDIConnection *)self.networkDestinations[0] endpoint];
+                OSStatus s = MIDISend(_outputPortRef, endpoint, packetList);
+                if (res == noErr && s != noErr) res = s;    // track the first error
+            }
+            
+            // Except on error
+            if (res != noErr) {
+                @throw [MFNonFatalException exceptionWithOSStatus:res reason:@"Error sending midi message"];
+            }
         }
         
-        if (res == noErr && s != noErr) res = s;    // track the first error
-    }
-    
-    // Network Conx
-    if (self.networkDestinations.count > 0)
-    {
-        MIDIEndpointRef endpoint = [self.networkDestinations[0] endpoint];
-        OSStatus s = MIDISend(_outputPortRef, endpoint, packetList);
-        if (res == noErr && s != noErr) res = s;    // track the first error
-    }
-    
-    // Except on error
-    if (res != noErr) {
-        @throw [MFNonFatalException exceptionWithOSStatus:res reason:@"Error sending midi message"];
-    }
+        // Do audiobus destinations
+        for (MFAudiobusDestination *abDest in _audiobusDestinations) {
+            [abDest sendMIDIPacketList:packetList];
+        }
+    }]; // end toMIDIPacketList
 }
 
-//---------------------------------------------------------------------
-
-@synthesize channel=_channel;
-
-//---------------------------------------------------------------------
+/////////////////////////////////////////////////////////////////////////
+#pragma mark - MIDI Convenience Methods
+/////////////////////////////////////////////////////////////////////////
 
 - (void)sendNoteOn:(UInt8)key velocity:(UInt8)velocity
 {
-    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeNoteOn channel:_channel];
+    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeNoteOn channel:_midiChannel];
     msg.key = key;
     msg.velocity = velocity;
     [self sendMIDIMessage:msg];
@@ -555,7 +625,7 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 
 - (void)sendNoteOff:(UInt8)key velocity:(UInt8)velocity
 {
-    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeNoteOff channel:_channel];
+    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeNoteOff channel:_midiChannel];
     msg.key= key;
     msg.velocity = velocity;
     [self sendMIDIMessage:msg];
@@ -565,7 +635,7 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 
 - (void)sendCC:(UInt8)ccNumber value:(UInt8)value
 {
-    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeControlChange channel:_channel];
+    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeControlChange channel:_midiChannel];
     msg.controller = ccNumber;
     msg.value = value;
     [self sendMIDIMessage:msg];
@@ -575,7 +645,7 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 
 - (void)sendPitchbend:(UInt16)value
 {
-    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypePitchbend channel:_channel];
+    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypePitchbend channel:_midiChannel];
     msg.pitchbendValue = value;
     [self sendMIDIMessage:msg];
 }
@@ -584,7 +654,7 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 
 - (void)sendProgramChange:(UInt8)value
 {
-    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeProgramChange channel:_channel];
+    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeProgramChange channel:_midiChannel];
     msg.programNumber = value;
     [self sendMIDIMessage:msg];
 }
@@ -593,7 +663,7 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 
 - (void)sendChannelAftertouch:(UInt8)pressure
 {
-    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeChannelAftertouch channel:_channel];
+    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypeChannelAftertouch channel:_midiChannel];
     msg.channelPressure = pressure;
     [self sendMIDIMessage:msg];
 }
@@ -602,7 +672,7 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 
 - (void)sendPolyphonicAftertouch:(UInt8)key pressure:(UInt8)pressure
 {
-    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypePolyphonicAftertouch channel:_channel];
+    MFMIDIMessage *msg = [MFMIDIMessage messageWithType:kMFMIDIMessageTypePolyphonicAftertouch channel:_midiChannel];
     msg.key = key;
     msg.keyPressure = pressure;
     [self sendMIDIMessage:msg];
@@ -619,15 +689,15 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
 
 - (void)sendAllNotesOffForAllChannels
 {
-    NSUInteger currentChan = self.channel;
+    NSUInteger currentChan = self.midiChannel;
     
     for (NSUInteger i=0; i<=15; i++)
     {
-        self.channel = i;
+        self.midiChannel = i;
         [self sendAllNotesOffForCurrentChannel];
     }
     
-    self.channel = currentChan;
+    self.midiChannel = currentChan;
 }
 
 
@@ -957,6 +1027,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     // Find the other in the pair to update it's flag
     _MFMIDINetworkSource *src;
     _MFMIDINetworkDestination *dest;
+    
     if ([conx isMemberOfClass:_MFMIDINetworkSource.class])
     {
         src = (id)conx;
@@ -977,7 +1048,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
             }
         }
     }
-    
+
     // They should ALWAYS be in pairs
     NSAssert(src, @"Source missing from pair. Details:\nconx: %@\nsrc: %@\ndest: %@", conx, self.networkSources, self.networkDestinations);
     NSAssert(dest, @"Destination missing from pair. Details:\nconx: %@\nsrc: %@\ndest: %@", conx, self.networkSources, self.networkDestinations);
@@ -1036,6 +1107,16 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
     {
         MIDIEndpointRef endpoint = MIDIGetDestination(index);
         NSObject *endpointObj = _EP2Obj(endpoint); // normalise 32bit and 64bit heterogony
+        
+        
+        // tmp: Log some info about the conx
+        MIDIEntityRef entity;
+        MIDIDeviceRef device;
+        OSStatus s1 = MIDIEndpointGetEntity(endpoint, &entity);
+        OSStatus s2 = MIDIEntityGetDevice(entity, &device);
+        echo("YO! Endpoint: %u %i %@", endpoint, noErr, _MFGetMIDIObjectStringProperty(endpoint, kMIDIPropertyName));
+        echo("YO! Entity: %u %i %@", entity, s1, _MFGetMIDIObjectStringProperty(entity, kMIDIPropertyName));
+        echo("YO! Device: %u %i %@", device, s2, _MFGetMIDIObjectStringProperty(device, kMIDIPropertyName));
         
         // Skip virtuals
         if ([self _endpointIsForVirtualConnection:endpoint]) {
@@ -1365,7 +1446,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 - (BOOL)_endpointIsForVirtualConnection:(MIDIEndpointRef)endpoint
 {
     NSArray *virtConx = [self->_virtualSources arrayByAddingObjectsFromArray:self->_virtualDestinations];
-    for (id<MFMIDIConnection> conx in virtConx) {
+    for (_MFCoreMIDIConnection *conx in virtConx) {
         if (conx.endpoint == endpoint) return YES;
     }
     return NO;
@@ -1374,7 +1455,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 //---------------------------------------------------------------------
 
 /** YES if there exists a userdefs value for the conx */
-- (BOOL)_hasPreviouslyStoredEnabledStateForConnection:(_MFMIDIConnection *)conx
+- (BOOL)_hasPreviouslyStoredEnabledStateForConnection:(_MFCoreMIDIConnection *)conx
 {
     NSString *idForConx = [self _storageIDForConnection:conx];
     NSDictionary *lookup = [_userDefs objectForKey:_kUserDefsKeyEnabledStates];
@@ -1384,7 +1465,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 //---------------------------------------------------------------------
 
 /** Check the persistence for the value set for the connection */
-- (void)_setEnabledStateForConnectionBasedOnSettings:(_MFMIDIConnection *)conx
+- (void)_setEnabledStateForConnectionBasedOnSettings:(_MFCoreMIDIConnection *)conx
 {
     NSString *idForConx = [self _storageIDForConnection:conx];
 
@@ -1411,7 +1492,7 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 
 //---------------------------------------------------------------------
 
-- (void)_storeConnectionEnabledState:(_MFMIDIConnection *)conx
+- (void)_storeConnectionEnabledState:(_MFCoreMIDIConnection *)conx
 {
     echo(@"Storing Connection <%@> enabled state: %@", conx.name, conx.enabled?@"YES":@"NO");
     NSString *idForConx = [self _storageIDForConnection:conx];
@@ -1426,8 +1507,8 @@ static void _MFMIDIReadProc(const MIDIPacketList *pktlist, void *readProcRefCon,
 
 //---------------------------------------------------------------------
 
-/** Create a reasonable unique id string given what we have. */
-- (NSString *)_storageIDForConnection:(_MFMIDIConnection *)conx
+/** Create a reasonable unique id string given what we have. @TODO: Should be in the classes themselves */
+- (NSString *)_storageIDForConnection:(_MFCoreMIDIConnection *)conx
 {
     NSString *idStr;
     // Use the name but try to avoid collisions. Don't include the host address so we can be smart about the same machine connecting on different IP addresses

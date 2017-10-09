@@ -14,24 +14,17 @@
 @class MFMIDIMessage;
 @class MFMIDISession;
 
+/** Protocols = verbs. Nouns are concrete classes. Don't rewrite until swift
+    Ok I think we should unwind these protocols and make the private classes public. The confuscation isnt necessary I dont think. The key issues are around NetworkMIDIDestination (and analagously "..Source") which are at once MIDIConnections, MIDINetworkConnections, and MIDIDestination. Protocols should only be made where type genericity is required in the MIDISess or client code, e.g. to allow similar API for Endpoint and Network destinations even though they are different beasts */
+
 /////////////////////////////////////////////////////////////////////////
 #pragma mark - Connections
 /////////////////////////////////////////////////////////////////////////
 
-/** Base protocol for all MIDI Connection types */
 @protocol MFMIDIConnection <NSObject>
 
 /** System name of the connection, derived from the Endpoint name or Network Host details  */
 @property (nonatomic, readonly) NSString *name;
-
-/** The CoreMIDI Endpoint ref */
-@property (nonatomic, readonly) MIDIEndpointRef endpoint;
-
-/** Flag indicating whether this refers to a connection over Wi-Fi. See README notes for important details about Network Connections and Core MIDI */
-@property (nonatomic, readonly) BOOL isNetworkConnection;
-
-/** YES when this is an Endpoint Connection that we've created for this app to appear in other apps as a Source or Destination */
-@property (nonatomic, readonly) BOOL isVirtualConnection;
 
 /** Get/Set whether this connection will send/receive MIDI */
 @property (nonatomic) BOOL enabled;
@@ -57,13 +50,13 @@
 @protocol MFMIDIMessageSender;
 @protocol MFMIDIMessageReceiver;
 
-/** Later we'll enable per-conx midi transactions */
+/** Later we'll enable per-conx midi transactions @deprecated */
 @protocol MFMIDISource <MFMIDIConnection>//, MFMIDIMessageReceiver>
 @end
 
 //---------------------------------------------------------------------
 
-/** Later we'll enable per-conx midi transactions */
+/** Later we'll enable per-conx midi transactions @deprecated */
 @protocol MFMIDIDestination <MFMIDIConnection>//, MFMIDIMessageSender>
 @end
 
@@ -94,34 +87,8 @@
 /** Send a specific MIDI Message. Encapsulates the type, values and the channel. Use instead of the convenience methods when you want to send to another channel or do something unusual. Max MIDIMessage.length is 64k */
 - (void)sendMIDIMessage:(MFMIDIMessage *)message;
 
-#pragma mark Convenience Methods
-/** @name Convenience Methods  */
-
-/** The default channel that will be used for the shorthand methods below */
-@property (nonatomic) UInt8 channel;
-
-/** Send MIDI Note On/Off message with note value and velocity (both 7bit 0..127) @{ */
-- (void)sendNoteOn:(UInt8)key velocity:(UInt8)velocity;
-- (void)sendNoteOff:(UInt8)key velocity:(UInt8)velocity;
-/** @} */
-
-- (void)sendCC:(UInt8)ccNumber value:(UInt8)value;
-
-/**
- @param value This is a hi-res, 14bit value 0-16383.  8192 = center, no bend.
- */
-- (void)sendPitchbend:(UInt16)value;
-
-- (void)sendProgramChange:(UInt8)value;
-
-- (void)sendChannelAftertouch:(UInt8)pressure;
-- (void)sendPolyphonicAftertouch:(UInt8)key pressure:(UInt8)pressure;
-
-/** MIDI All Notes Off Message (CC:123) */
-- (void)sendAllNotesOffForCurrentChannel;
-
-- (void)sendAllNotesOffForAllChannels;
-
+/** Have the next level down as well too allow more complicated midi packets */
+- (void)sendMIDIPacketList:(MIDIPacketList *)packetList;
 
 @end
 

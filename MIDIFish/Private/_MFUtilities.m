@@ -15,6 +15,7 @@ NSString *_MFGetMIDIObjectStringProperty(MIDIObjectRef obj, CFStringRef property
     OSStatus s = MIDIObjectGetStringProperty(obj, property, ( CFStringRef *)&string);
     if ( s != noErr )
     {
+        NSLog(@"OSSTATUS ERR: %i", (int)s);
         return @"<Unknown>";
     }
     return (NSString *)CFBridgingRelease(string);

@@ -6,9 +6,9 @@
 //
 //
 
-#import "_MFMIDIConnection.h"
+#import "_MFCoreMIDIConnection.h"
 
 /** Abstract base class for modeling non-network connections @abstract */
-@interface _MFMIDIEndpointConnection : _MFMIDIConnection
+@interface _MFMIDIEndpointConnection : _MFCoreMIDIConnection
 
 @end

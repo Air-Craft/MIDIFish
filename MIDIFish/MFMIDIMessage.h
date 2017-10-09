@@ -156,6 +156,8 @@ typedef NS_ENUM(UInt8, MFMIDIMessageType) {
  */
 - (void)setByte:(UInt8)byte atIndex:(NSUInteger)index;
 
+/** Need to use a block here as packet lists have a scope and their handling needs to occur within the same scope or EXC_BAD_ACCESS will happen sometimes */
+- (void)toMIDIPacketList:(void(^)(MIDIPacketList *packetList))packetListHandler;
 
 
 

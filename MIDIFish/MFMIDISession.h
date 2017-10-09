@@ -11,12 +11,13 @@
 
 #import "MFProtocols.h"
 #import "MFMIDIMessage.h"
-
+#import "MFAudiobusDestination.h"
 
 /////////////////////////////////////////////////////////////////////////
 #pragma mark -
 /////////////////////////////////////////////////////////////////////////
 @protocol MFMIDISessionDelegate;
+@class ABAudiobusController;
 
 @interface MFMIDISession : NSObject <MFMIDIMessageSender, MFMIDIMessageReceiver>
 
@@ -41,6 +42,12 @@
 
 /** Enable MIDINetworkSession and Bonjour search for connections. Defaults to YES */
 @property (nonatomic) BOOL networkEnabled;
+
+/** Audiobus disables CoreMIDI at certain times. Use this property to check when. When it's YES then none of the network or endpoint connections will send */
+@property (nonatomic, readonly) BOOL coreMIDISendEnabled;
+
+// TODO:
+@property (nonatomic, readonly) BOOL coreMIDIReceiveEnabled;
 
 /** Stores enabled states for connections (in NSUserDefaults) and restores them upon re-discovery / re-creation (ie does NOT add them on launch, only sets them when found) */
 @property (nonatomic) BOOL restorePreviousConnectionStates;
@@ -101,6 +108,14 @@
 @property (nonatomic, readonly) NSArray *virtualSources;
 
 
+/** Above are a bit deprecated. The whole point of this API is to reduce the knowledge needed to work with midi and coremidi. For now this one will just contain Audiobus destinations but in the future it will merge with the others in a ".destinations" property */
+@property (nonatomic, readonly) NSArray *audiobusDestinations;
+
+
+/** The default channel that will be used for the shorthand methods below */
+@property (nonatomic) UInt8 midiChannel;
+
+
 /////////////////////////////////////////////////////////////////////////
 #pragma mark - Public Methods
 /////////////////////////////////////////////////////////////////////////
@@ -143,6 +158,45 @@
 - (NSUInteger)availableDestinationsCountIncludeVirtual:(BOOL)includeVirtual;
 - (NSUInteger)enabledSourcesCountIncludeVirtual:(BOOL)includeVirtual;
 - (NSUInteger)enabledDestinationsCountIncludeVirtual:(BOOL)includeVirtual;
+
+
+#pragma mark Audiobus
+
+- (void)assignAudiobusController:(ABAudiobusController *)abController;
+
+- (void)addAudiobusDestination:(MFAudiobusDestination *)abDestination;
+
+// convenience method for creating a destination
+- (MFAudiobusDestination *)createAudiobusSenderPortWithName:(NSString *)name title:(NSString *)title;
+
+
+
+#pragma mark MIDI Convenience Methods
+/** @name Convenience Methods  */
+
+/** Send MIDI Note On/Off message with note value and velocity (both 7bit 0..127) @{ */
+- (void)sendNoteOn:(UInt8)key velocity:(UInt8)velocity;
+- (void)sendNoteOff:(UInt8)key velocity:(UInt8)velocity;
+/** @} */
+
+- (void)sendCC:(UInt8)ccNumber value:(UInt8)value;
+
+/**
+ @param value This is a hi-res, 14bit value 0-16383.  8192 = center, no bend.
+ */
+- (void)sendPitchbend:(UInt16)value;
+
+- (void)sendProgramChange:(UInt8)value;
+
+- (void)sendChannelAftertouch:(UInt8)pressure;
+- (void)sendPolyphonicAftertouch:(UInt8)key pressure:(UInt8)pressure;
+
+/** MIDI All Notes Off Message (CC:123) */
+- (void)sendAllNotesOffForCurrentChannel;
+
+- (void)sendAllNotesOffForAllChannels;
+
+
 
 
 @end

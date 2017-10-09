@@ -1,15 +1,15 @@
 //
-//  _MFMIDIConnection.m
+//  _MFCoreMIDIConnection.m
 //  MIDIFish
 //
 //  Created by Hari Karam Singh on 02/02/2015.
 //
 //
 
-#import "_MFMIDIConnection.h"
+#import "_MFCoreMIDIConnection.h"
 #import "_MFUtilities.h"
 
-@implementation _MFMIDIConnection
+@implementation _MFCoreMIDIConnection
 
 - (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDISession *)client
 {
@@ -32,21 +32,12 @@
 #pragma mark - Properties
 /////////////////////////////////////////////////////////////////////////
 
-@synthesize endpoint=_endpoint;
-@synthesize isVirtualConnection=_isVirtualConnection;
 @synthesize enabled=_enabled;
 
 
 - (NSString *)name
 {
     return _MFGetMIDIObjectDisplayName(self.endpoint);
-}
-
-//---------------------------------------------------------------------
-
-- (BOOL)isNetworkConnection
-{
-    return NO;
 }
 
 //---------------------------------------------------------------------

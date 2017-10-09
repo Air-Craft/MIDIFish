@@ -13,7 +13,13 @@
  Abstract base class for all network and non-network connections
  @abstract
  */
-@interface _MFMIDIConnection : NSObject <MFMIDIConnection>
+@interface _MFCoreMIDIConnection : NSObject <MFMIDIConnection>
+
+/** The CoreMIDI Endpoint ref */
+@property (nonatomic, readonly) MIDIEndpointRef endpoint;
+
+/** YES when this is an Endpoint Connection that we've created for this app to appear in other apps as a Source or Destination */
+@property (nonatomic, readonly) BOOL isVirtualConnection;
 
 - (instancetype)initWithEndpoint:(MIDIEndpointRef)endpoint client:(__weak MFMIDISession *)client;
 

@@ -72,11 +72,6 @@ static NSMutableArray *_tmpRetainer;
 #pragma mark - Overrides
 /////////////////////////////////////////////////////////////////////////
 
-/** @override */
-- (BOOL)isNetworkConnection { return YES; }
-
-//---------------------------------------------------------------------
-
 /** 
  @override
  NetService name > host user-tagged "name" > endpoint name

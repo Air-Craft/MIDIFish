@@ -14,4 +14,10 @@
 #import "MFMIDISession.h"
 #import "MFMIDIMessage.h"
 
+// Audiobus if supported
+//#ifdef ABSDKVersionString
+#import "MFAudiobusConnection.h"
+//#endif
+
+
 #endif

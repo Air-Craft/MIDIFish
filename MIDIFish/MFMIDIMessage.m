@@ -391,6 +391,20 @@ rawstyle:
     }
 }
 
+//---------------------------------------------------------------------
+
+- (void)toMIDIPacketList:(void (^)(MIDIPacketList *))packetListHandler
+{
+    // Form a MIDIPacketList (thanks PGMIDI!)
+    NSParameterAssert(self.length < 65536);
+    Byte packetBuffer[self.length + 100];
+    MIDIPacketList *packetList = (MIDIPacketList *)packetBuffer;
+    MIDIPacket     *packet     = MIDIPacketListInit(packetList);
+    
+    packet = MIDIPacketListAdd(packetList, sizeof(packetBuffer), packet, 0, self.length, self.bytes);
+    
+    packetListHandler(packetList);
+}
 
 /////////////////////////////////////////////////////////////////////////
 #pragma mark - Additional Privates

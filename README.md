@@ -9,6 +9,7 @@ _Note: This framework is still not feature complete. Most notably, MIDI Receive 
 * High level semantics for MIDI operations, e.g. `sendPitchbend`
 * Normalises the API for Network, Hardware/App, and Virtual connections  
 * Network MIDI scanning made easy(er)
+* Audiobus Support (in progress)
 * UserDefaults stores and restores manual network connections
 * Arbitrary number of virtual source/destinations
 * API Simplicity with optional granularity,
@@ -24,7 +25,7 @@ _midiSession = [MFMIDISession sessionWithName:@"Your App Name"];
 _midiSession.networkEnabled = YES;
 _midiSession.restorePreviousConnectionStates = YES;
 _midiSession.autoEnableDestinations = YES;
-_midiSession.channel = 0;
+_midiSession.midiChannel = 0;
         
 // Create the Virtual Source to expose to other apps
 [_midiSession createVirtualSourceWithName:_midiSession.name]; // disabled by default

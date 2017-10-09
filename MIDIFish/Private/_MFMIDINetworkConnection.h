@@ -8,13 +8,13 @@
 
 #import <Foundation/Foundation.h>
 #import <CoreMIDI/MIDINetworkSession.h>
-#import "_MFMIDIConnection.h"
+#import "_MFCoreMIDIConnection.h"
 #import "MFProtocols.h"
 
 /** 
  Abstract base class for network-based connections  @abstract 
  */
-@interface _MFMIDINetworkConnection : _MFMIDIConnection <MFMIDINetworkConnection>
+@interface _MFMIDINetworkConnection : _MFCoreMIDIConnection <MFMIDINetworkConnection>
 
 /////////////////////////////////////////////////////////////////////////
 #pragma mark - Life Cycle & Overrides
