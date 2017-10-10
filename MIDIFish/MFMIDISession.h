@@ -196,6 +196,10 @@
 
 - (void)sendAllNotesOffForAllChannels;
 
+/** TODO:  */
+- (void)sendRPNWithMSB:(UInt8)msb LSB:(UInt8)lsb valueMSB:(UInt8)valueMSB valueLSB:(UInt8)valueLSB;
+- (void)sendNRPNWithMSB:(UInt8)msb LSB:(UInt8)lsb valueMSB:(UInt8)valueMSB valueLSB:(UInt8)valueLSB;
+
 
 
 

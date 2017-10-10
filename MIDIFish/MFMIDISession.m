@@ -619,6 +619,7 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
     msg.key = key;
     msg.velocity = velocity;
     [self sendMIDIMessage:msg];
+    
 }
 
 //---------------------------------------------------------------------
@@ -700,7 +701,31 @@ static NSString * const _kUserDefsKeyManualConnections = @"co.air-craft.MIDIFish
     self.midiChannel = currentChan;
 }
 
+//---------------------------------------------------------------------
 
+- (void)sendRPNWithMSB:(UInt8)msb LSB:(UInt8)lsb valueMSB:(UInt8)valueMSB valueLSB:(UInt8)valueLSB
+{
+    // @TODO: Make it possible to send these in a single packet to ensure thread safety
+    [self sendCC:101 value:msb];
+    [self sendCC:100 value:lsb];
+    [self sendCC:6 value:valueMSB];
+    if (valueLSB) {
+        [self sendCC:38 value:valueLSB];
+    }
+}
+
+//---------------------------------------------------------------------
+
+- (void)sendNRPNWithMSB:(UInt8)msb LSB:(UInt8)lsb valueMSB:(UInt8)valueMSB valueLSB:(UInt8)valueLSB
+{
+    // @TODO: Make it possible to send these in a single packet to ensure thread safety
+    [self sendCC:99 value:msb];
+    [self sendCC:98 value:lsb];
+    [self sendCC:6 value:valueMSB];
+    if (valueLSB) {
+        [self sendCC:38 value:valueLSB];
+    }
+}
 
 /////////////////////////////////////////////////////////////////////////
 #pragma mark - MIDI Callback Procs
